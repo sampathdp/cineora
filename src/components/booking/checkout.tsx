@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { BackLink, Skeleton } from "@/components/ui/misc";
 import { FormMessage, inputClass } from "@/components/auth/form-kit";
 import { MissingBooking, useBookingDetails } from "./booking-context";
+import { routes } from "@/lib/routes";
 
 /**
  * Review step. Pressing "Reserve seats" asks the server to create the booking: the server re-checks availability,
@@ -45,7 +46,7 @@ export function Checkout() {
   if (status === "anonymous" || !user) {
     return (
       <div className="container-page pb-20 pt-28 sm:pt-32">
-        <BackLink href={`/booking/${details.showtime.id}`}>Change seats</BackLink>
+        <BackLink href={routes.seats(details.showtime.id)}>Change seats</BackLink>
         <h1 className="display mt-2 text-4xl sm:text-6xl">Sign in to reserve</h1>
         <p className="mt-3 max-w-xl text-muted">
           Your {details.seats.length} selected seat{details.seats.length > 1 ? "s are" : " is"} remembered. Sign in or create an account to reserve{" "}
@@ -75,7 +76,7 @@ export function Checkout() {
         draft.idempotencyKey,
       );
       clearDraft();
-      router.push(`/account/bookings/${booking.id}`);
+      router.push(routes.booking(booking.id));
     } catch (e) {
       if (!(e instanceof ApiError)) return setError({ message: "Something went wrong. Please try again." });
       if (e.code === "seats_unavailable") setError({ message: "Some seats were just taken. Please choose different seats.", seats: e.errors.seats });
@@ -90,7 +91,7 @@ export function Checkout() {
 
   return (
     <div className="container-page pb-20 pt-28 sm:pt-32">
-      <BackLink href={`/booking/${showtime.id}`}>Change seats</BackLink>
+      <BackLink href={routes.seats(showtime.id)}>Change seats</BackLink>
       <p className="eyebrow mt-2">Review</p>
       <h1 className="display mt-2 text-4xl sm:text-6xl">Reserve your seats</h1>
 
@@ -154,7 +155,7 @@ export function Checkout() {
                 {error.seats?.length ? ` (${error.seats.join(", ")})` : ""}
               </FormMessage>
               {error.seats?.length ? (
-                <Link href={`/booking/${showtime.id}`} className="mt-2 inline-block text-sm font-semibold text-accent-text hover:underline" onClick={() => clearDraft()}>
+                <Link href={routes.seats(showtime.id)} className="mt-2 inline-block text-sm font-semibold text-accent-text hover:underline" onClick={() => clearDraft()}>
                   Back to the seat map
                 </Link>
               ) : null}

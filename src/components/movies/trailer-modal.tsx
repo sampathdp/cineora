@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/modal";
 import { Art } from "@/components/ui/art";
 import { LinkButton } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 /** Returns a privacy-friendly embed URL for valid YouTube links, otherwise null. */
 export function toYouTubeEmbed(url?: string): string | null {
@@ -56,7 +57,7 @@ export function TrailerModal({ movie, open, onClose }: { movie: Movie; open: boo
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted">{movie.tagline}</p>
           {movie.status === "now-playing" ? (
-            <LinkButton href={`/movies/${movie.slug}#showtimes`} size="sm">
+            <LinkButton href={routes.movie(movie.slug, "#showtimes")} size="sm">
               Book Tickets
             </LinkButton>
           ) : null}

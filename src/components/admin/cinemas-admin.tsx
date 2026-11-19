@@ -7,6 +7,7 @@ import { adm } from "@/lib/api/admin";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Panel, Pill, Section, TextArea, TextField, useAction, useLoad } from "./kit";
+import { routes } from "@/lib/routes";
 
 interface Room { id: string; name: string; screen_type: string; is_active: boolean; seat_count: number | null }
 interface Cinema {
@@ -20,7 +21,7 @@ export function CinemasAdmin() {
   const [editing, setEditing] = useState<string | null>(null);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const router = useRouter();
-  const openLayout = (room: Room) => router.push(`/admin/cinemas/rooms/${room.id}/seats`);
+  const openLayout = (room: Room) => router.push(routes.roomSeats(room.id));
   const [roomPickerFor, setRoomPickerFor] = useState<Cinema | null>(null);
   const open = (id: string | null) => { setCreatedId(null); setEditing(id); };
   const list = useLoad(() => adm.get<Cinema[]>("/cinemas").then((r) => r.data), "cinemas");
@@ -248,7 +249,7 @@ function Rooms({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void })
           { key: "a", label: "Status", render: (r) => <Pill tone={r.is_active ? "good" : "neutral"}>{r.is_active ? "Active" : "Inactive"}</Pill> },
           { key: "x", label: "", render: (r) => canManage ? (
             <span className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" onClick={() => router.push(`/admin/cinemas/rooms/${r.id}/seats`)}>Seat layout</Button>
+              <Button size="sm" variant="secondary" onClick={() => router.push(routes.roomSeats(r.id))}>Seat layout</Button>
               <Button size="sm" variant="ghost" onClick={async () => { if (await act.run(() => adm.patch(`/rooms/${r.id}`, { is_active: !r.is_active }))) onChanged(); }}>{r.is_active ? "Deactivate" : "Activate"}</Button>
               <Button size="sm" variant="ghost" onClick={async () => { if (window.confirm(`Delete room ${r.name}?`) && (await act.run(() => adm.del(`/rooms/${r.id}`), "Room deleted."))) onChanged(); }}>Delete</Button>
             </span>

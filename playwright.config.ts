@@ -36,11 +36,11 @@ export default defineConfig({
       },
     },
     {
-      command: "npm run build && npm run start -- -p 3110",
+      command: "npm run build && node scripts/serve-static.mjs out 3110",
       url: SITE,
       reuseExistingServer: false,
       timeout: 240_000,
-      env: { NEXT_PUBLIC_API_BASE_URL: API, NEXT_DIST_DIR: ".next-e2e", ALLOW_LOCAL_IMAGE_HOST: "true" },
+      env: { NEXT_PUBLIC_API_BASE_URL: API, NEXT_DIST_DIR: ".next-e2e" },
     },
   ],
 });

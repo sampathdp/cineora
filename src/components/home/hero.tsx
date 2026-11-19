@@ -10,6 +10,7 @@ import { buttonClass } from "@/components/ui/button";
 import { TrailerButton } from "@/components/movies/trailer-modal";
 import { formatDuration, releaseLabel } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
+import { routes } from "@/lib/routes";
 
 const INTERVAL_MS = 9000;
 const arrowClass =
@@ -81,7 +82,7 @@ export function Hero({ movies }: { movies: Movie[] }) {
               <li className="rounded border border-white/40 px-1.5 py-0.5 text-xs font-bold">{movie.certificate}</li>
             </ul>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href={`/movies/${movie.slug}#showtimes`} className={buttonClass("primary", "lg")}>
+              <Link href={routes.movie(movie.slug, "#showtimes")} className={buttonClass("primary", "lg")}>
                 <Ticket className="size-5" aria-hidden /> Book Tickets
               </Link>
               <TrailerButton movie={movie} className={buttonClass("onDark", "lg")}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Ban, Box, MousePointerClick, Paintbrush, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,12 @@ import { cn } from "@/lib/utils";
 interface CinemaRooms { id: string; name: string; rooms: { id: string; name: string }[] }
 
 /** Full-page seat layout editor for one screening room. */
+/** /admin/cinemas/rooms/seats/?room=… */
+export function SeatLayoutQueryPage() {
+  const roomId = useSearchParams().get("room") ?? "";
+  return <SeatLayoutPage key={roomId} roomId={roomId} />;
+}
+
 export function SeatLayoutPage({ roomId }: { roomId: string }) {
   const list = useLoad(() => adm.get<CinemaRooms[]>("/cinemas").then((r) => r.data), "cinemas");
   return (

@@ -10,6 +10,7 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { buttonClass } from "@/components/ui/button";
 import { TrailerButton } from "@/components/movies/trailer-modal";
 import { formatISODate, formatTime, zonedParts } from "@/lib/formatters";
+import { routes } from "@/lib/routes";
 
 export function TopMovies({ movies, next }: { movies: Movie[]; next: Record<string, ApiShowtime> }) {
   const ref = useRef<HTMLUListElement>(null);
@@ -59,7 +60,7 @@ export function TopMovies({ movies, next }: { movies: Movie[]; next: Record<stri
                 <div className="p-5">
                   <p className="text-xs font-semibold uppercase tracking-wider text-accent-text">{m.genres.join(" · ")}</p>
                   <h3 className="display mt-1 text-2xl sm:text-3xl">
-                    <Link href={`/movies/${m.slug}`} className="hover:text-accent-text">
+                    <Link href={routes.movie(m.slug)} className="hover:text-accent-text">
                       {m.title}
                     </Link>
                   </h3>
@@ -68,7 +69,7 @@ export function TopMovies({ movies, next }: { movies: Movie[]; next: Record<stri
                       Next: {formatISODate(when.date, { weekday: "short", day: "numeric", month: "short" })} {formatTime(when.time)} · {upcoming.cinema.name}
                     </p>
                   ) : null}
-                  <Link href={`/movies/${m.slug}#showtimes`} className={buttonClass("primary", "sm", "mt-4")}>
+                  <Link href={routes.movie(m.slug, "#showtimes")} className={buttonClass("primary", "sm", "mt-4")}>
                     Get Tickets
                   </Link>
                 </div>

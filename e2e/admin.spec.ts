@@ -8,7 +8,7 @@ async function staffLogin(page: Page, email: string) {
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page).toHaveURL(/\/admin\/?$/);
 }
 
 const nav = (page: Page) => page.getByRole("navigation", { name: "Admin" });
@@ -55,7 +55,7 @@ test.describe.serial("administration: content, catalogue, scheduling, reporting"
     await page.getByRole("button", { name: "Publish", exact: true }).click();
     await expect(page.getByText("Published.")).toBeVisible();
 
-    await page.goto("/movies/e2e-midnight-run");
+    await page.goto("/movies/view/?slug=e2e-midnight-run");
     await expect(page.getByRole("heading", { name: "E2E Midnight Run" })).toBeVisible();
     await expect(page.locator("main script")).toHaveCount(0); // shown as inert text at most, never executed as markup
   });
@@ -82,7 +82,7 @@ test.describe.serial("administration: content, catalogue, scheduling, reporting"
     await again.getByRole("button", { name: "Create draft" }).click();
     await expect(again.getByRole("alert").filter({ hasText: /overlaps|already starts|room/i })).toBeVisible();
 
-    await page.goto("/movies/e2e-midnight-run");
+    await page.goto("/movies/view/?slug=e2e-midnight-run");
     await expect(page.getByText(/from ₩/).first()).toBeVisible();
   });
 

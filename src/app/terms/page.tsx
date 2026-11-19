@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/content/legal-page";
 
-export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Terms & Conditions", description: "The terms for booking tickets with Cineora." };
 
 const defaults: [string, string][] = [

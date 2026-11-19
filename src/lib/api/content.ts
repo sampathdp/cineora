@@ -52,16 +52,26 @@ async function get<T>(path: string, revalidate = 60): Promise<T> {
   return ((await res.json()) as { data: T }).data;
 }
 
-/** Website settings managed in the admin area, falling back to the built-in defaults if the API is unreachable. */
-export async function getSite(): Promise<SiteInfo> {
-  const fallback: SiteInfo = {
-    name: siteConfig.name,
-    tagline: siteConfig.tagline,
-    description: siteConfig.description,
-    contact: { ...siteConfig.contact, hours: null },
-    socials: [],
-    pages: {},
-  };
+/** Built-in site details, used until (or if) the API answers. */
+export const siteFallback: SiteInfo = {
+  name: siteConfig.name,
+  tagline: siteConfig.tagline,
+  description: siteConfig.description,
+  contact: { ...siteConfig.contact, hours: null },
+  socials: [],
+  pages: {},
+};
+
+let siteRequest: Promise<SiteInfo> | null = null;
+
+/** Website settings managed in the admin area, falling back to the built-in defaults if the API is unreachable. Fetched once per page load. */
+export function getSite(): Promise<SiteInfo> {
+  siteRequest ??= loadSite();
+  return siteRequest;
+}
+
+async function loadSite(): Promise<SiteInfo> {
+  const fallback = siteFallback;
   try {
     const d = await get<{ settings: Record<string, string | null>; social_links: { platform: string; url: string }[]; pages: Record<string, string> }>("/site");
     const s = d.settings;

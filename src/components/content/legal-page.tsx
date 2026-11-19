@@ -1,5 +1,7 @@
+"use client";
+
 import { PageHero } from "@/components/ui/section-heading";
-import { getSite } from "@/lib/api/content";
+import { useSite } from "@/lib/use-site";
 import { Paragraphs } from "./content-bits";
 
 /**
@@ -7,15 +9,17 @@ import { Paragraphs } from "./content-bits";
  * Otherwise the factual defaults below describe what the system actually does. These defaults are a starting point
  * and must be reviewed by a lawyer before launch.
  */
-export async function LegalPage({ pageKey, title, defaults }: { pageKey: "privacy" | "terms"; title: string; defaults: [string, string][] }) {
-  const site = await getSite();
+export function LegalPage({ pageKey, title, defaults }: { pageKey: "privacy" | "terms"; title: string; defaults: [string, string][] }) {
+  const { site, loaded } = useSite();
   const custom = site.pages[pageKey]?.trim();
 
   return (
     <>
       <PageHero title={title} eyebrow="Legal" />
       <section className="container-page max-w-3xl py-12">
-        {custom ? (
+        {!loaded ? (
+          <div className="h-64" aria-busy="true" />
+        ) : custom ? (
           <Paragraphs items={custom.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)} />
         ) : (
           <div className="space-y-8">

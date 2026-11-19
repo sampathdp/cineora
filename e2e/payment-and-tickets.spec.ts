@@ -17,7 +17,7 @@ async function staffLogin(page: Page, email: string) {
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page).toHaveURL(/\/admin\/?$/);
 }
 
 const seat = (page: Page, label: string) => page.getByRole("button", { name: new RegExp(`^Seat ${label},`) });
@@ -28,7 +28,7 @@ const story: { bookingUrl?: string; reference?: string; ticketRefs: string[]; qr
 test.describe.serial("pay by bank transfer, get verified, receive tickets, get scanned at the door", () => {
   test("customer reserves seats and uploads a transfer proof", async ({ page }) => {
     await login(page, "e2e.three@example.test");
-    await page.goto("/movies/ashes-of-the-lantern");
+    await page.goto("/movies/view/?slug=ashes-of-the-lantern");
     await page.getByRole("tab").first().click();
     await page.locator("ul button[aria-pressed]").first().click();
     await expect(page.getByRole("group", { name: "Seats" })).toBeVisible();
@@ -37,7 +37,7 @@ test.describe.serial("pay by bank transfer, get verified, receive tickets, get s
     await page.getByRole("button", { name: "Continue to checkout" }).first().click();
     await page.getByLabel(/I agree to the/).check();
     await page.getByRole("button", { name: "Reserve seats" }).click();
-    await expect(page).toHaveURL(/\/account\/bookings\/[0-9A-Z]{26}$/);
+    await expect(page).toHaveURL(/\/account\/bookings\/view\/\?id=[0-9A-Z]{26}$/);
     story.bookingUrl = page.url();
     story.reference = (await page.getByText(/^CIN-[A-HJ-NP-Z2-9]{8}$/).first().textContent()) ?? undefined;
 

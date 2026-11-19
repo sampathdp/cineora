@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/misc";
 import { buttonClass } from "@/components/ui/button";
 import { formatDuration, releaseLabel } from "@/lib/formatters";
 import { TrailerButton } from "./trailer-modal";
+import { routes } from "@/lib/routes";
 
 export function MovieCard({ movie }: { movie: Movie }) {
   const playing = movie.status === "now-playing";
   return (
     <article className="group flex flex-col">
       <div className="relative overflow-hidden rounded-card border border-line bg-surface shadow-card">
-        <Link href={`/movies/${movie.slug}`} className="relative block aspect-[2/3] overflow-hidden" aria-label={`${movie.title} details`}>
+        <Link href={routes.movie(movie.slug)} className="relative block aspect-[2/3] overflow-hidden" aria-label={`${movie.title} details`}>
           <div className="size-full transition duration-700 ease-out group-hover:scale-110 group-focus-within:scale-110">
             <Art art={movie.art} seed={movie.slug} title={movie.title} variant="poster" />
           </div>
@@ -34,7 +35,7 @@ export function MovieCard({ movie }: { movie: Movie }) {
 
       <div className="mt-4 flex flex-1 flex-col gap-1.5">
         <h3 className="display text-2xl">
-          <Link href={`/movies/${movie.slug}`} className="hover:text-accent-text">
+          <Link href={routes.movie(movie.slug)} className="hover:text-accent-text">
             {movie.title}
           </Link>
         </h3>
@@ -47,11 +48,11 @@ export function MovieCard({ movie }: { movie: Movie }) {
         </p>
         <div className="mt-3 flex items-center gap-2">
           {playing ? (
-            <Link href={`/movies/${movie.slug}#showtimes`} className={buttonClass("primary", "sm", "flex-1")}>
+            <Link href={routes.movie(movie.slug, "#showtimes")} className={buttonClass("primary", "sm", "flex-1")}>
               Get Tickets
             </Link>
           ) : (
-            <Link href={`/movies/${movie.slug}`} className={buttonClass("secondary", "sm", "flex-1")}>
+            <Link href={routes.movie(movie.slug)} className={buttonClass("secondary", "sm", "flex-1")}>
               View Details
             </Link>
           )}

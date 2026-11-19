@@ -11,7 +11,7 @@ async function login(page: Page, email: string, next = "/account") {
 
 /** Opens the first movie with showtimes, picks the first date and time, returns once the seat map is visible. */
 async function openSeatMap(page: Page) {
-  await page.goto("/movies/ashes-of-the-lantern");
+  await page.goto("/movies/view/?slug=ashes-of-the-lantern");
   await page.getByRole("tab").first().click();
   await page.locator("ul button[aria-pressed]").first().click();
   await expect(page.getByRole("group", { name: "Seats" })).toBeVisible();
@@ -44,7 +44,7 @@ test.describe.serial("customer booking journey (real browser, real API, real MyS
     await reserve.click();
 
     // The booking exists on the server with a hold.
-    await expect(page).toHaveURL(/\/account\/bookings\/[0-9A-Z]{26}$/);
+    await expect(page).toHaveURL(/\/account\/bookings\/view\/\?id=[0-9A-Z]{26}$/);
     await expect(page.getByText(/^CIN-[A-HJ-NP-Z2-9]{8}$/).first()).toBeVisible();
     await expect(page.getByText("Awaiting payment").first()).toBeVisible();
     await expect(page.getByRole("timer")).toContainText("Seats held for");
@@ -55,7 +55,7 @@ test.describe.serial("customer booking journey (real browser, real API, real MyS
 
   test("a second customer sees those seats as taken", async ({ page }) => {
     await login(page, "e2e.two@example.test", "/account");
-    await expect(page).toHaveURL(/\/account$/);
+    await expect(page).toHaveURL(/\/account\/?$/);
     await openSeatMap(page);
     await expect(seat(page, "D5")).toBeDisabled();
     await expect(seat(page, "D6")).toBeDisabled();
@@ -65,13 +65,13 @@ test.describe.serial("customer booking journey (real browser, real API, real MyS
   test("someone else's booking is not reachable by its URL", async ({ page, browser }) => {
     await login(page, "e2e.one@example.test", "/account/bookings");
     await page.getByRole("link", { name: /CIN-/ }).first().click();
-    await expect(page).toHaveURL(/\/account\/bookings\/[0-9A-Z]{26}$/);
+    await expect(page).toHaveURL(/\/account\/bookings\/view\/\?id=[0-9A-Z]{26}$/);
     const url = page.url();
 
     const other = await browser.newContext({ baseURL: "http://localhost:3110" });
     const p2 = await other.newPage();
     await login(p2, "e2e.two@example.test");
-    await expect(p2).toHaveURL(/\/account$/);
+    await expect(p2).toHaveURL(/\/account\/?$/);
     await p2.goto(url);
     await expect(p2.getByText("We could not find that booking.")).toBeVisible();
     await other.close();

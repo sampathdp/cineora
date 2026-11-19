@@ -5,6 +5,7 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { Film, Search, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { useMovieSearch } from "@/lib/api/use-movie-search";
+import { routes } from "@/lib/routes";
 
 interface Result {
   key: string;
@@ -33,7 +34,7 @@ function SearchBody({ onClose }: { onClose: () => void }) {
   const results: Result[] = useMemo(
     () =>
       deferred && movies
-        ? movies.map((m) => ({ key: `m-${m.slug}`, href: `/movies/${m.slug}`, title: m.title, meta: m.genres.join(" · "), kind: "Movie" as const }))
+        ? movies.map((m) => ({ key: `m-${m.slug}`, href: routes.movie(m.slug), title: m.title, meta: m.genres.join(" · "), kind: "Movie" as const }))
         : [],
     [deferred, movies],
   );

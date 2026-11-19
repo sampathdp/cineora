@@ -5,6 +5,7 @@ import { Art } from "@/components/ui/art";
 import { buttonClass } from "@/components/ui/button";
 import { TrailerButton } from "@/components/movies/trailer-modal";
 import { formatDuration } from "@/lib/formatters";
+import { routes } from "@/lib/routes";
 
 export function FeaturedBanner({ movie }: { movie: Movie }) {
   return (
@@ -31,7 +32,7 @@ export function FeaturedBanner({ movie }: { movie: Movie }) {
             {movie.genres.join(" · ")} · {formatDuration(movie.durationMin)}
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link href={`/movies/${movie.slug}#showtimes`} className={buttonClass("primary", "lg")}>
+            <Link href={routes.movie(movie.slug, "#showtimes")} className={buttonClass("primary", "lg")}>
               <Ticket className="size-5" aria-hidden /> Get Ticket
             </Link>
             <TrailerButton movie={movie} className={buttonClass("onDark", "lg")}>

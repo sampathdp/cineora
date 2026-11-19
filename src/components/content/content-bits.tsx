@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Calendar, MapPin } from "lucide-react";
 import type { ArticleSummary, EventSummary } from "@/lib/api/content";
 import { formatISODate, formatTime, zonedParts } from "@/lib/formatters";
+import { routes } from "@/lib/routes";
 
 /** Plain-text paragraphs, escaped by React: editors cannot inject markup. */
 export function Paragraphs({ items }: { items: string[] }) {
@@ -32,7 +33,7 @@ export function EventCard({ event }: { event: EventSummary }) {
       <Cover src={event.image_url} alt="" />
       <div className="p-5">
         <h2 className="display text-2xl">
-          <Link href={`/events/${event.slug}`} className="hover:text-accent-text">
+          <Link href={routes.event(event.slug)} className="hover:text-accent-text">
             {event.title}
           </Link>
         </h2>
@@ -59,7 +60,7 @@ export function ArticleCard({ article }: { article: ArticleSummary }) {
       <div className="p-5">
         {article.category ? <p className="eyebrow">{article.category.name}</p> : null}
         <h2 className="display mt-1 text-2xl">
-          <Link href={`/news/${article.slug}`} className="hover:text-accent-text">
+          <Link href={routes.article(article.slug)} className="hover:text-accent-text">
             {article.title}
           </Link>
         </h2>

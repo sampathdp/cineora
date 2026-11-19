@@ -1,7 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { siteConfig } from "@/config/site";
-import { getSite } from "@/lib/api/content";
+import { useSite } from "@/lib/use-site";
 import { Logo } from "./logo";
 import { NewsletterForm } from "./newsletter-form";
 
@@ -48,8 +50,8 @@ const movieLinks = [
   { label: "Coming Soon", href: "/movies?tab=coming-soon" },
 ];
 
-export async function Footer() {
-  const site = await getSite();
+export function Footer() {
+  const { site } = useSite();
   return (
     <footer className="border-t border-line bg-surface">
       <div className="container-page py-14 lg:py-20">

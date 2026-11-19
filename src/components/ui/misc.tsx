@@ -91,3 +91,14 @@ export function CatalogUnavailable({ inline, empty }: { inline?: boolean; empty?
   );
   return inline ? body : <section className="container-page pb-20 pt-32">{body}</section>;
 }
+
+/** Placeholder while a page loads its data in the browser. */
+export function PageLoading({ label = "Loading" }: { label?: string }) {
+  return (
+    <section className="container-page flex flex-col gap-6 pb-20 pt-32" aria-busy="true" aria-label={label}>
+      <Skeleton className="h-10 w-2/3 max-w-md" />
+      <Skeleton className="h-5 w-1/2 max-w-sm" />
+      <Skeleton className="aspect-[16/7] w-full" />
+    </section>
+  );
+}

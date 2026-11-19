@@ -1,16 +1,36 @@
 "use client";
 
-import type { ApiShowtime } from "@/lib/api/catalog";
+import { useSearchParams } from "next/navigation";
+import { fetchShowtime, type ApiShowtime } from "@/lib/api/catalog";
 import { formatISODate, formatTime, zonedParts } from "@/lib/formatters";
-import { BackLink } from "@/components/ui/misc";
+import { routes } from "@/lib/routes";
+import { useClientData } from "@/lib/use-client-data";
+import { BackLink, EmptyState, PageLoading } from "@/components/ui/misc";
 import { LiveSeatMap } from "./live-seat-map";
+import NotFound from "@/app/not-found";
+
+/** /booking/seats/?showtime=… — always fetched fresh, never cached. */
+export function SeatPickerPage() {
+  const id = useSearchParams().get("showtime");
+  const { data: showtime, error, loading } = useClientData(id ? `showtime:${id}` : null, (signal) => fetchShowtime(id!, signal));
+  if (!id) return <NotFound />;
+  if (loading) return <PageLoading label="Loading showtime" />;
+  if (error)
+    return (
+      <section className="container-page pb-20 pt-32">
+        <EmptyState title="This showtime is temporarily unavailable" description="Please try again in a moment." />
+      </section>
+    );
+  if (!showtime) return <NotFound />;
+  return <SeatPicker showtime={showtime} />;
+}
 
 export function SeatPicker({ showtime }: { showtime: ApiShowtime }) {
   const { date, time } = zonedParts(showtime.starts_at, showtime.cinema.timezone);
 
   return (
     <div className="container-page pb-32 pt-28 sm:pt-32 lg:pb-16">
-      <BackLink href={`/movies/${showtime.movie.slug}`}>Back to movie</BackLink>
+      <BackLink href={routes.movie(showtime.movie.slug)}>Back to movie</BackLink>
       <header className="mt-2">
         <p className="eyebrow">Select seats</p>
         <h1 className="display mt-2 text-4xl sm:text-6xl">{showtime.movie.title}</h1>

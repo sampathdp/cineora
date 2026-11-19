@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/content/legal-page";
 
-export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Privacy Policy", description: "How Cineora handles your personal data." };
 
 const defaults: [string, string][] = [

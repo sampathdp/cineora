@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { routes } from "@/lib/routes";
 import { useEffect, useState } from "react";
 import { Clock, Ticket } from "lucide-react";
 import { useAuth } from "@/providers/auth-provider";
@@ -43,9 +44,17 @@ function useRequireLogin() {
   const router = useRouter();
   const pathname = usePathname();
   useEffect(() => {
-    if (status === "anonymous") router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+    // Keep the query string: the booking page identifies the booking by ?id=.
+    if (status === "anonymous") router.replace(`/login?next=${encodeURIComponent(pathname + window.location.search)}`);
   }, [status, router, pathname]);
   return status === "authenticated";
+}
+
+/** /account/bookings/view/?id=… */
+export function BookingViewPage() {
+  const id = useSearchParams().get("id");
+  if (!id) return <EmptyState title="Booking not found" action={<Link href="/account/bookings" className="font-semibold text-accent-text hover:underline">My bookings</Link>} />;
+  return <BookingView key={id} id={id} />;
 }
 
 export function BookingView({ id }: { id: string }) {
@@ -284,7 +293,7 @@ export function BookingList() {
               const when = b.showtime ? zonedParts(b.showtime.starts_at, b.showtime.cinema.timezone) : null;
               return (
                 <li key={b.id}>
-                  <Link href={`/account/bookings/${b.id}`} className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-elevated p-5 transition hover:border-accent">
+                  <Link href={routes.booking(b.id)} className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-elevated p-5 transition hover:border-accent">
                     <div className="min-w-0">
                       <p className="display text-2xl">{b.showtime?.movie.title ?? "Booking"}</p>
                       <p className="text-sm text-muted">
