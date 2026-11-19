@@ -24,20 +24,41 @@ export function useScrollLock(active: boolean) {
 
 /** Focus trap, Escape to close, focus restore. */
 export function useDialogBehavior(open: boolean, onClose: () => void, panelRef: RefObject<HTMLElement | null>) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  // 1. Initial focus when modal opens (runs only when `open` changes, never steals focus while typing)
   useEffect(() => {
     if (!open) return;
     const previous = document.activeElement as HTMLElement | null;
     const panel = panelRef.current;
-    const first = panel?.querySelector<HTMLElement>("[data-autofocus]") ?? panel?.querySelector<HTMLElement>(FOCUSABLE);
-    (first ?? panel)?.focus();
+
+    // Only set focus if active element is not already inside the modal panel
+    if (panel && !panel.contains(document.activeElement)) {
+      const autoFocusEl = panel.querySelector<HTMLElement>("[data-autofocus], [autofocus]");
+      const firstInput = panel.querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled]), select:not([disabled])");
+      const firstFocusable = panel.querySelector<HTMLElement>(FOCUSABLE);
+      const target = autoFocusEl ?? firstInput ?? firstFocusable ?? panel;
+      target?.focus();
+    }
+
+    return () => {
+      previous?.focus?.();
+    };
+  }, [open, panelRef]);
+
+  // 2. Keyboard trap & Escape handler (stable keydown listener)
+  useEffect(() => {
+    if (!open) return;
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
-      if (e.key !== "Tab" || !panel) return;
+      if (e.key !== "Tab" || !panelRef.current) return;
+      const panel = panelRef.current;
       const items = Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null);
       if (!items.length) return;
       const firstEl = items[0];
@@ -50,12 +71,12 @@ export function useDialogBehavior(open: boolean, onClose: () => void, panelRef: 
         firstEl.focus();
       }
     };
+
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      previous?.focus?.();
     };
-  }, [open, onClose, panelRef]);
+  }, [open, panelRef]);
 }
 
 interface ModalProps {

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { publicForms } from "@/lib/api/content";
+import { ApiError } from "@/lib/api/client";
 
 const schema = z.string().trim().email("Enter a valid email address.");
 
@@ -10,8 +12,9 @@ export function NewsletterForm() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = schema.safeParse(email);
     if (!parsed.success) {
@@ -20,12 +23,21 @@ export function NewsletterForm() {
       return;
     }
     setError(null);
-    setDone(true);
-    setEmail("");
+    setBusy(true);
+    try {
+      await publicForms.newsletter(parsed.data);
+      setDone(true);
+      setEmail("");
+    } catch (err) {
+      setDone(false);
+      setError(err instanceof ApiError && err.status === 429 ? "Too many attempts. Please try again later." : "Could not subscribe right now. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate aria-label="Newsletter signup (demo)">
+    <form onSubmit={onSubmit} noValidate aria-label="Newsletter signup">
       <label htmlFor="newsletter-email" className="sr-only">
         Email address
       </label>
@@ -41,7 +53,7 @@ export function NewsletterForm() {
           aria-describedby="newsletter-msg"
           className="h-11 min-w-0 flex-1 rounded-control border border-line bg-background px-3 text-sm outline-none placeholder:text-muted focus:border-accent"
         />
-        <Button type="submit" size="md">
+        <Button type="submit" size="md" disabled={busy}>
           Subscribe
         </Button>
       </div>
@@ -49,9 +61,9 @@ export function NewsletterForm() {
         {error ? (
           <span className="text-red-500 dark:text-red-400">⚠ {error}</span>
         ) : done ? (
-          <span className="text-accent-text">✓ Demo only: no email was sent or stored.</span>
+          <span className="text-accent-text">✓ You are subscribed. Thank you!</span>
         ) : (
-          <span className="text-muted">Frontend demo: nothing is submitted anywhere.</span>
+          <span className="text-muted">Premieres, special screenings and offers.</span>
         )}
       </p>
     </form>

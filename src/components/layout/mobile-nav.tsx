@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { buttonClass } from "@/components/ui/button";
 import { useDialogBehavior, useScrollLock } from "@/components/ui/modal";
 import { ThemeToggle } from "./theme-toggle";
+import { useAuth } from "@/providers/auth-provider";
 
 export function MobileNav({
   open,
@@ -25,6 +26,7 @@ export function MobileNav({
   const ref = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
   const pathname = usePathname();
+  const { user } = useAuth();
   const first = useRef(true);
   useScrollLock(open);
   useDialogBehavior(open, onClose, ref);
@@ -99,6 +101,9 @@ export function MobileNav({
               <button type="button" onClick={onSearch} className={buttonClass("secondary", "lg", "w-full")}>
                 <Search className="size-5" aria-hidden /> Search
               </button>
+              <Link href={user ? "/account" : "/login"} onClick={onClose} className={buttonClass("secondary", "lg", "w-full")}>
+                {user ? "Your account" : "Sign in"}
+              </Link>
               <Link href="/movies" onClick={onClose} className={buttonClass("primary", "lg", "w-full")}>
                 <Ticket className="size-5" aria-hidden /> Get Tickets
               </Link>

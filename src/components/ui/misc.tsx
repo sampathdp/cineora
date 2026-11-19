@@ -75,3 +75,19 @@ export function BackLink({ href, children }: { href: string; children: ReactNode
 export function Skeleton({ className }: { className?: string }) {
   return <div aria-hidden className={cn("animate-pulse rounded-card bg-surface", className)} />;
 }
+
+/** Shown when the catalogue API cannot be reached (or has no published titles yet). */
+export function CatalogUnavailable({ inline, empty }: { inline?: boolean; empty?: boolean }) {
+  const body = (
+    <EmptyState
+      title={empty ? "No movies yet" : "Movies are temporarily unavailable"}
+      description={empty ? "Check back soon for what is showing." : "We could not load the catalogue. Please try again in a moment."}
+      action={
+        <a href="" className={buttonClass("secondary", "md")}>
+          Reload
+        </a>
+      }
+    />
+  );
+  return inline ? body : <section className="container-page pb-20 pt-32">{body}</section>;
+}

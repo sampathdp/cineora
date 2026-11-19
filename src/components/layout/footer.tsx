@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { getSite } from "@/lib/api/content";
 import { Logo } from "./logo";
 import { NewsletterForm } from "./newsletter-form";
 
@@ -47,23 +48,24 @@ const movieLinks = [
   { label: "Coming Soon", href: "/movies?tab=coming-soon" },
 ];
 
-export function Footer() {
+export async function Footer() {
+  const site = await getSite();
   return (
     <footer className="border-t border-line bg-surface">
       <div className="container-page py-14 lg:py-20">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <Logo />
-            <p className="mt-4 max-w-sm text-muted">{siteConfig.description}</p>
+            <p className="mt-4 max-w-sm text-muted">{site.description}</p>
             <ul className="mt-6 flex flex-col gap-2 text-sm text-muted">
               <li className="flex items-center gap-2">
-                <MapPin className="size-4 text-accent-text" aria-hidden /> {siteConfig.contact.address}
+                <MapPin className="size-4 text-accent-text" aria-hidden /> {site.contact.address}
               </li>
               <li className="flex items-center gap-2">
-                <Phone className="size-4 text-accent-text" aria-hidden /> {siteConfig.contact.phone}
+                <Phone className="size-4 text-accent-text" aria-hidden /> {site.contact.phone}
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="size-4 text-accent-text" aria-hidden /> {siteConfig.contact.email}
+                <Mail className="size-4 text-accent-text" aria-hidden /> {site.contact.email}
               </li>
             </ul>
           </div>
@@ -82,7 +84,7 @@ export function Footer() {
 
         <div className="mt-14 flex flex-col items-start justify-between gap-6 border-t border-line pt-6 text-sm text-muted sm:flex-row sm:items-center">
           <p>
-            © {new Date().getFullYear()} {siteConfig.name}. Frontend demonstration. Not a real ticketing service.
+            © {new Date().getFullYear()} {site.name}. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
             <Link href="/terms" className="hover:text-foreground">
@@ -92,13 +94,15 @@ export function Footer() {
               Privacy
             </Link>
             <ul className="flex gap-2">
-              {siteConfig.socials.map((s) => {
-                const Icon = socialIcons[s.icon];
+              {site.socials.filter((s) => s.platform in socialIcons).map((s) => {
+                const Icon = socialIcons[s.platform as keyof typeof socialIcons];
                 return (
-                  <li key={s.label}>
+                  <li key={s.platform}>
                     <a
-                      href={s.href}
-                      aria-label={`${s.label} (placeholder link)`}
+                      href={s.url}
+                      aria-label={`${s.platform[0].toUpperCase()}${s.platform.slice(1)} (opens in a new tab)`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="grid size-9 place-items-center rounded-full border border-line transition hover:border-accent hover:bg-accent hover:text-on-accent"
                     >
                       <Icon />

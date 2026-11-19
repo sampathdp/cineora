@@ -1,0 +1,175 @@
+<?php
+
+namespace App\Services\Catalog;
+
+use App\Models\Cinema;
+use App\Models\ScreeningRoom;
+use App\Models\Seat;
+use App\Models\SeatCategory;
+use App\Models\Showtime;
+use App\Models\User;
+use App\Services\Audit\AuditLogger;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
+
+class RoomService
+{
+    public function __construct(private readonly AuditLogger $audit) {}
+
+    public function create(Cinema $cinema, array $data, User $actor): ScreeningRoom
+    {
+        $room = $cinema->rooms()->create(array_intersect_key($data, array_flip(['name', 'screen_type', 'is_active'])));
+        $this->audit->log('room.created', $actor, 'room', $room->public_id, ['cinema' => $cinema->public_id]);
+
+        return $room;
+    }
+
+    public function update(ScreeningRoom $room, array $data, User $actor): ScreeningRoom
+    {
+        $room->update(array_intersect_key($data, array_flip(['name', 'screen_type', 'is_active'])));
+        $this->audit->log('room.updated', $actor, 'room', $room->public_id, ['fields' => array_keys($data)]);
+
+        return $room;
+    }
+
+    public function delete(ScreeningRoom $room, User $actor): void
+    {
+        if ($room->showtimes()->exists()) {
+            throw ValidationException::withMessages(['room' => ['This room has showtimes. Deactivate it instead of deleting.']]);
+        }
+        DB::transaction(function () use ($room, $actor) {
+            $room->seats()->delete();
+            $room->delete();
+            $this->audit->log('room.deleted', $actor, 'room', $room->public_id);
+        });
+    }
+
+    /**
+     * Replaces a room's seat layout with the given list.
+     *
+     * Seats keep their id when (row, number) matches, so history, showtime inventory and tickets stay attached.
+     * A seat missing from the new layout is deleted only if nothing references it; otherwise it is deactivated.
+     * A seat whose category changes is refused while any showtime inventory exists for it, because prices
+     * of existing showtimes were derived from the old category.
+     *
+     * @param  list<array{row_label: string, number: int, category_key: string, x?: int, y?: int}>  $seats
+     * @return array{created: int, updated: int, removed: int, deactivated: int}
+     */
+    public function replaceLayout(ScreeningRoom $room, array $seats, User $actor): array
+    {
+        return DB::transaction(function () use ($room, $seats, $actor) {
+            ScreeningRoom::whereKey($room->id)->lockForUpdate()->first();
+
+            $categories = SeatCategory::query()
+                ->where(fn ($q) => $q->whereNull('cinema_id')->orWhere('cinema_id', $room->cinema_id))
+                ->get()->keyBy('key');
+
+            $incoming = [];
+            foreach ($seats as $s) {
+                $cat = $categories[$s['category_key']] ?? null;
+                if (! $cat) {
+                    throw ValidationException::withMessages(['seats' => ["Unknown seat category '{$s['category_key']}'."]]);
+                }
+                $key = strtoupper($s['row_label']).'|'.$s['number'];
+                if (isset($incoming[$key])) {
+                    throw ValidationException::withMessages(['seats' => ["Duplicate seat {$s['row_label']}{$s['number']}."]]);
+                }
+                $incoming[$key] = ['row_label' => strtoupper($s['row_label']), 'number' => (int) $s['number'], 'seat_category_id' => $cat->id, 'x' => $s['x'] ?? null, 'y' => $s['y'] ?? null];
+            }
+
+            /** @var Collection<int, Seat> $existing */
+            $existing = $room->seats()->get()->keyBy(fn (Seat $s) => $s->row_label.'|'.$s->number);
+            $inventory = DB::table('showtime_seats')->whereIn('seat_id', $existing->pluck('id'))->distinct()->pluck('seat_id')->flip();
+            $booked = DB::table('showtime_seats')
+                ->whereIn('seat_id', $existing->pluck('id'))
+                ->where(fn ($q) => $q->whereIn('status', ['held', 'sold'])->orWhereNotNull('booking_id'))
+                ->pluck('seat_id')
+                ->flip();
+
+            $result = ['created' => 0, 'updated' => 0, 'removed' => 0, 'deactivated' => 0];
+
+            foreach ($incoming as $key => $row) {
+                $seat = $existing[$key] ?? null;
+                if (! $seat) {
+                    $newSeat = $room->seats()->create($row + ['is_active' => true]);
+                    $result['created']++;
+
+                    // Sync new seat into future showtimes for this room
+                    $futureShows = Showtime::where('room_id', $room->id)->where('starts_at', '>', now())->get(['id']);
+                    if ($futureShows->isNotEmpty()) {
+                        $showPrices = DB::table('showtime_seat_prices')
+                            ->where('seat_category_id', $row['seat_category_id'])
+                            ->whereIn('showtime_id', $futureShows->pluck('id'))
+                            ->pluck('price', 'showtime_id');
+                        $defaultPrice = $categories->firstWhere('id', $row['seat_category_id'])->default_price ?? 12000;
+
+                        $now = now();
+                        $newRows = $futureShows->map(fn ($show) => [
+                            'showtime_id' => $show->id,
+                            'seat_id' => $newSeat->id,
+                            'price' => $showPrices[$show->id] ?? $defaultPrice,
+                            'status' => 'available',
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ])->all();
+
+                        DB::table('showtime_seats')->insertOrIgnore($newRows);
+                    }
+
+                    continue;
+                }
+
+                // If seat has active bookings, its category cannot change
+                if ($seat->seat_category_id !== $row['seat_category_id'] && isset($booked[$seat->id])) {
+                    throw ValidationException::withMessages(['seats' => ["Seat {$seat->row_label}{$seat->number} has active ticket bookings; its category cannot change."]]);
+                }
+
+                $catChanged = $seat->seat_category_id !== $row['seat_category_id'];
+                $seat->fill($row + ['is_active' => true]);
+                if ($seat->isDirty()) {
+                    $seat->save();
+                    $result['updated']++;
+
+                    // Reprice unbooked showtime seats for this seat if category changed
+                    if ($catChanged) {
+                        $categoryPrices = DB::table('showtime_seat_prices')
+                            ->where('seat_category_id', $row['seat_category_id'])
+                            ->pluck('price', 'showtime_id');
+                        $defaultPrice = $categories->firstWhere('id', $row['seat_category_id'])->default_price ?? 12000;
+
+                        $availableSeats = DB::table('showtime_seats')
+                            ->where('seat_id', $seat->id)
+                            ->where('status', 'available')
+                            ->whereNull('booking_id')
+                            ->get(['id', 'showtime_id']);
+
+                        foreach ($availableSeats as $ss) {
+                            $price = $categoryPrices[$ss->showtime_id] ?? $defaultPrice;
+                            DB::table('showtime_seats')->where('id', $ss->id)->update(['price' => $price, 'updated_at' => now()]);
+                        }
+                    }
+                }
+            }
+
+            foreach ($existing as $key => $seat) {
+                if (isset($incoming[$key])) {
+                    continue;
+                }
+                if (isset($inventory[$seat->id])) {
+                    // Remove unbooked showtime seats from inventory
+                    DB::table('showtime_seats')->where('seat_id', $seat->id)->where('status', 'available')->whereNull('booking_id')->delete();
+                    $seat->update(['is_active' => false]);
+                    $result['deactivated']++;
+                } else {
+                    $seat->delete();
+                    $result['removed']++;
+                }
+            }
+
+            $this->audit->log('room.layout_updated', $actor, 'room', $room->public_id, $result);
+
+            return $result;
+        });
+    }
+}

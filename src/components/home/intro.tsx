@@ -5,8 +5,8 @@ import { Reveal } from "@/components/ui/reveal";
 
 const highlights = [
   { icon: MousePointerClick, title: "Easy booking", text: "Pick a film, a showtime and your exact seats in minutes." },
-  { icon: CreditCard, title: "Flexible payment", text: "Bank transfer instructions with manual verification (demo)." },
-  { icon: QrCode, title: "Digital tickets", text: "A clear confirmation you can print or save (demo)." },
+  { icon: CreditCard, title: "Flexible payment", text: "Pay by bank transfer; our team verifies it and issues your tickets." },
+  { icon: QrCode, title: "Digital tickets", text: "A QR ticket for every seat, on your phone or printed." },
 ];
 
 export function Intro() {
@@ -43,9 +43,9 @@ export function Intro() {
             </div>
             <div className="absolute -bottom-2 left-[46%] grid size-28 place-items-center rounded-full border-2 border-dashed border-accent bg-background text-center shadow-card sm:size-32">
               <p>
-                <span className="display block text-4xl text-accent-text">4</span>
+                <span className="display block text-4xl text-accent-text">24/7</span>
                 <span className="block text-[0.65rem] font-semibold uppercase leading-tight tracking-wider text-muted">
-                  demo venues
+                  online booking
                 </span>
               </p>
             </div>
@@ -58,7 +58,7 @@ export function Intro() {
             The best movie ticket distributor
           </h2>
           <p className="mt-5 max-w-xl text-pretty text-muted">
-            Cineora brings every screen in a fictional city together: one place to discover films, compare showtimes and choose your perfect seat. This site is a frontend demonstration with sample content.
+            Cineora brings the screens together in one place: discover films, compare showtimes and choose your perfect seat.
           </p>
           <ul className="mt-8 grid gap-5 sm:grid-cols-3">
             {highlights.map(({ icon: Icon, title, text }) => (

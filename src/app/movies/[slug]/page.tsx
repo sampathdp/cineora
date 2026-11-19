@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Calendar, Clock, Play, Star, Ticket } from "lucide-react";
-import { getMovie, movies } from "@/data/movies";
+import { catalog } from "@/lib/api/catalog";
 import { Art } from "@/components/ui/art";
 import { Badge, BackLink } from "@/components/ui/misc";
 import { buttonClass } from "@/components/ui/button";
@@ -12,13 +12,11 @@ import Link from "next/link";
 
 type Params = { slug: string };
 
-export function generateStaticParams() {
-  return movies.map((m) => ({ slug: m.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
-  const movie = getMovie(slug);
+  const movie = await catalog.movie(slug).catch(() => null);
   if (!movie) return { title: "Movie not found" };
   return {
     title: movie.title,
@@ -29,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
 
 export default async function MovieDetailPage({ params }: { params: Promise<Params> }) {
   const { slug } = await params;
-  const movie = getMovie(slug);
+  const movie = await catalog.movie(slug); // throws on API failure -> error boundary; null means a real 404
   if (!movie) notFound();
   const playing = movie.status === "now-playing";
 
@@ -65,8 +63,7 @@ export default async function MovieDetailPage({ params }: { params: Promise<Para
               </li>
               {movie.rating > 0 ? (
                 <li className="inline-flex items-center gap-2">
-                  <Star className="size-4 fill-accent text-accent" aria-hidden /> {movie.rating.toFixed(1)} / 10{" "}
-                  <span className="text-white/60">(demo)</span>
+                  <Star className="size-4 fill-accent text-accent" aria-hidden /> {movie.rating.toFixed(1)} / 10
                 </li>
               ) : null}
               <li className="inline-flex items-center gap-2">

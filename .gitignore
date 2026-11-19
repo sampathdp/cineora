@@ -42,3 +42,11 @@ next-env.d.ts
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+# playwright / e2e build
+/test-results/
+/playwright-report/
+/.next-e2e/
+
+# backend
+!.env.example

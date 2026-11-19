@@ -3,15 +3,17 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
-import { movies, genres } from "@/data/movies";
-import type { MovieStatus } from "@/types/movie";
+import type { Movie, MovieStatus } from "@/types/movie";
+import type { MovieQuery } from "@/lib/api/catalog";
+import { useMovieSearch } from "@/lib/api/use-movie-search";
 import { MovieCard } from "./movie-card";
 import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/misc";
+import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 8;
 type Sort = "popular" | "rating" | "title" | "duration";
+type GenreOption = { slug: string; name: string };
 
 const chip = (active: boolean) =>
   cn(
@@ -19,37 +21,38 @@ const chip = (active: boolean) =>
     active ? "border-accent bg-accent text-on-accent" : "border-line bg-elevated hover:border-accent",
   );
 
-export function MoviesExplorer() {
+const apiSort: Partial<Record<Sort, MovieQuery["sort"]>> = { rating: "-rating", title: "title" };
+
+/** Filtering, search and sorting are done by the API; this component only holds the form state. */
+export function MoviesExplorer({ initialMovies, genres }: { initialMovies: Movie[]; genres: GenreOption[] }) {
   const params = useSearchParams();
   const [tab, setTab] = useState<MovieStatus>(params.get("tab") === "coming-soon" ? "coming-soon" : "now-playing");
-  const [genre, setGenre] = useState<string>("All");
+  const [genre, setGenre] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("popular");
   const [visible, setVisible] = useState(PAGE_SIZE);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const list = movies.filter(
-      (m) =>
-        m.status === tab &&
-        (genre === "All" || m.genres.includes(genre as never)) &&
-        (!q || `${m.title} ${m.genres.join(" ")} ${m.director}`.toLowerCase().includes(q)),
-    );
-    const sorters: Record<Sort, (a: (typeof list)[number], b: (typeof list)[number]) => number> = {
-      popular: () => 0,
-      rating: (a, b) => b.rating - a.rating,
-      title: (a, b) => a.title.localeCompare(b.title),
-      duration: (a, b) => a.durationMin - b.durationMin,
-    };
-    return [...list].sort(sorters[sort]);
-  }, [tab, genre, query, sort]);
+  const request: MovieQuery = {
+    screening_status: tab === "now-playing" ? "now_playing" : "coming_soon",
+    genre: genre === "all" ? undefined : genre,
+    q: query.trim() || undefined,
+    sort: apiSort[sort],
+  };
+  // The server pre-loads the default view (Now Playing, no filters) so the first paint needs no request.
+  const isDefaultView = tab === "now-playing" && genre === "all" && !query.trim() && sort === "popular";
+  const { movies, loading, error, retry } = useMovieSearch(request, { initial: isDefaultView ? initialMovies : undefined });
+
+  const list = useMemo(() => {
+    if (!movies) return null;
+    return sort === "duration" ? [...movies].sort((a, b) => a.durationMin - b.durationMin) : movies;
+  }, [movies, sort]);
 
   const reset = () => {
     setQuery("");
-    setGenre("All");
+    setGenre("all");
     setVisible(PAGE_SIZE);
   };
-  const shown = filtered.slice(0, visible);
+  const shown = list?.slice(0, visible) ?? [];
 
   return (
     <div>
@@ -85,11 +88,12 @@ export function MoviesExplorer() {
               id="movie-search"
               type="search"
               value={query}
+              maxLength={100}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setVisible(PAGE_SIZE);
               }}
-              placeholder="Search title, genre or director"
+              placeholder="Search by title"
               className="h-11 w-full rounded-control border border-line bg-elevated pl-9 pr-3 text-sm outline-none placeholder:text-muted focus:border-accent"
             />
           </div>
@@ -103,7 +107,7 @@ export function MoviesExplorer() {
               onChange={(e) => setSort(e.target.value as Sort)}
               className="h-11 rounded-control border border-line bg-elevated px-3 text-sm outline-none focus:border-accent"
             >
-              <option value="popular">Featured</option>
+              <option value="popular">Newest</option>
               <option value="rating">Top rated</option>
               <option value="title">Title A–Z</option>
               <option value="duration">Shortest first</option>
@@ -112,28 +116,48 @@ export function MoviesExplorer() {
         </div>
 
         <div role="group" aria-label="Filter by genre" className="flex flex-wrap gap-2">
-          {["All", ...genres].map((g) => (
+          {[{ slug: "all", name: "All" }, ...genres].map((g) => (
             <button
-              key={g}
+              key={g.slug}
               type="button"
-              aria-pressed={genre === g}
+              aria-pressed={genre === g.slug}
               onClick={() => {
-                setGenre(g);
+                setGenre(g.slug);
                 setVisible(PAGE_SIZE);
               }}
-              className={chip(genre === g)}
+              className={chip(genre === g.slug)}
             >
-              {g}
+              {g.name}
             </button>
           ))}
         </div>
       </div>
 
       <p className="mt-6 text-sm text-muted" role="status">
-        {filtered.length} {filtered.length === 1 ? "movie" : "movies"}
+        {error ? "" : list ? `${list.length} ${list.length === 1 ? "movie" : "movies"}` : "Loading…"}
       </p>
 
-      {filtered.length === 0 ? (
+      {error ? (
+        <div className="mt-4">
+          <EmptyState
+            title="Could not load movies"
+            description={error}
+            action={
+              <Button variant="secondary" onClick={retry}>
+                Try again
+              </Button>
+            }
+          />
+        </div>
+      ) : list === null || (loading && list.length === 0) ? (
+        <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6" aria-busy="true">
+          {Array.from({ length: 4 }, (_, i) => (
+            <li key={i}>
+              <Skeleton className="aspect-[2/3]" />
+            </li>
+          ))}
+        </ul>
+      ) : list.length === 0 ? (
         <div className="mt-4">
           <EmptyState
             title="No movies match"
@@ -146,7 +170,7 @@ export function MoviesExplorer() {
           />
         </div>
       ) : (
-        <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6">
+        <ul className={cn("mt-4 grid grid-cols-2 gap-x-4 gap-y-10 transition-opacity md:grid-cols-3 lg:grid-cols-4 lg:gap-x-6", loading && "opacity-60")}>
           {shown.map((m) => (
             <li key={m.slug}>
               <MovieCard movie={m} />
@@ -155,7 +179,7 @@ export function MoviesExplorer() {
         </ul>
       )}
 
-      {filtered.length > visible ? (
+      {list && list.length > visible ? (
         <div className="mt-12 flex justify-center">
           <Button variant="secondary" size="lg" onClick={() => setVisible((v) => v + PAGE_SIZE)}>
             Load more

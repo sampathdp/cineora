@@ -1,0 +1,114 @@
+name: Deploy API to Shared Hosting
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+# Never let two deploys upload over each other.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  web-deploy:
+    name: 🎉 Build & Deploy Laravel API
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: 🐘 Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_mysql, bcmath, intl, gd, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: 📦 Install production dependencies
+        working-directory: backend
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: 📂 Prepare deployment directory
+        run: |
+          mkdir -p dist
+          cp -r backend/. dist/
+
+          # Never ship secrets, dev tooling, tests or local runtime state.
+          # The production .env lives only on the server.
+          rm -f  dist/.env dist/.env.backup dist/.env.production dist/.phpunit.result.cache
+          rm -rf dist/scratch dist/tests dist/node_modules dist/.phpunit.cache
+          rm -f  dist/phpunit.xml dist/AGENTS.md dist/CLAUDE.md
+          # public/storage is a local symlink; FTP cannot recreate it, so /storage is
+          # served by a rewrite in the root .htaccess instead.
+          rm -rf dist/public/storage
+          # Compiled caches from a dev machine must not reach the server.
+          find dist/bootstrap/cache -type f ! -name '.gitignore' -delete
+          # .gitignore files are excluded from upload, so drop a .keep in each runtime
+          # folder — Laravel needs these to exist on first deploy.
+          for d in bootstrap/cache storage/app/public storage/app/private storage/logs \
+                   storage/framework/cache/data storage/framework/sessions storage/framework/views; do
+            mkdir -p "dist/$d" && touch "dist/$d/.keep"
+          done
+
+      - name: 📝 Create production .htaccess at root
+        run: |
+          cat << 'EOF' > dist/.htaccess
+          # The deploy's webroot is the project root (this file's folder), not public/.
+          # Only public/index.php, files in public/ and the public storage disk are reachable.
+          Options -Indexes -MultiViews
+
+          <IfModule mod_rewrite.c>
+              RewriteEngine On
+
+              # Pass auth headers through to PHP (Sanctum / CSRF).
+              RewriteCond %{HTTP:Authorization} .
+              RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+              RewriteCond %{HTTP:x-xsrf-token} .
+              RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+              # Block dotfiles (.env, .git*, ...).
+              RewriteRule (^|/)\. - [F,L]
+
+              # Public storage disk (posters, backdrops) — replaces `php artisan storage:link`.
+              RewriteRule ^storage/(.+)$ storage/app/public/$1 [END]
+
+              # Block source, config, vendor and private storage.
+              RewriteRule ^(app|bootstrap|config|database|resources|routes|storage|tests|vendor|scratch)(/|$) - [F,L]
+              RewriteRule ^(artisan|composer\.json|composer\.lock|package\.json|phpunit\.xml|vite\.config\.js|README\.md)$ - [F,L]
+
+              # Static files that live in public/ (favicon.ico, robots.txt, ...).
+              RewriteRule ^(favicon\.ico|robots\.txt)$ public/$1 [END]
+
+              # Everything else goes to the Laravel front controller.
+              RewriteRule ^ public/index.php [END,QSA]
+          </IfModule>
+
+          # Belt and braces if mod_rewrite is off: never serve dotfiles.
+          <FilesMatch "^\.">
+              Require all denied
+          </FilesMatch>
+          EOF
+
+      - name: 📂 Sync files to FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          port: 21
+          local-dir: ./dist/
+          # server-dir: /public_html/api/
+          # The action only deletes files it uploaded itself, so uploads, logs and
+          # sessions created on the server are never removed.
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .env

@@ -1,56 +1,34 @@
 "use client";
 
-import { cloneElement, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Landmark, Upload } from "lucide-react";
-import { siteConfig } from "@/config/site";
-import { confirmDemoBooking, isExpired, useDraft } from "@/lib/booking-store";
+import { useState } from "react";
+import { Clock, ShieldCheck } from "lucide-react";
+import { useAuth } from "@/providers/auth-provider";
+import { bookingsApi } from "@/lib/api/bookings";
+import { ApiError } from "@/lib/api/client";
+import { clearDraft, isExpired, useDraft } from "@/lib/booking-store";
 import { formatISODate, formatPrice, formatTime } from "@/lib/formatters";
-import { CATEGORY_LABEL } from "@/lib/seats";
 import { Button } from "@/components/ui/button";
-import { BackLink, DemoNotice, Skeleton } from "@/components/ui/misc";
-import { MissingBooking, SERVICE_FEE_PER_SEAT, useBookingDetails } from "./booking-context";
+import { BackLink, Skeleton } from "@/components/ui/misc";
+import { FormMessage, inputClass } from "@/components/auth/form-kit";
+import { MissingBooking, useBookingDetails } from "./booking-context";
 
-const schema = z.object({
-  fullName: z.string().trim().min(2, "Enter your full name."),
-  email: z.string().trim().email("Enter a valid email address."),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^[+\d][\d\s()-]{6,}$/, "Enter a valid phone number (digits, spaces, + or -)."),
-  paymentReference: z.string().trim().max(40, "Keep the reference under 40 characters.").optional(),
-  agree: z.boolean().refine((v) => v, "Please confirm you understand this is a demonstration."),
-});
-type FormValues = z.infer<typeof schema>;
-
+/**
+ * Review step. Pressing "Reserve seats" asks the server to create the booking: the server re-checks availability,
+ * calculates the total and holds the seats. Nothing shown here (prices, totals) is sent to the server.
+ */
 export function Checkout() {
   const router = useRouter();
   const draft = useDraft();
   const details = useBookingDetails(draft);
-  const [proof, setProof] = useState<{ name: string; url: string | null } | null>(null);
-  const [proofError, setProofError] = useState<string | null>(null);
+  const { status, user } = useAuth();
+  const [promo, setPromo] = useState("");
+  const [agree, setAgree] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<{ message: string; seats?: string[]; field?: string } | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-    defaultValues: { fullName: "", email: "", phone: "", paymentReference: "", agree: false },
-  });
-
-  // Revoke object URLs for the local-only proof preview.
-  useEffect(() => {
-    const url = proof?.url;
-    return () => {
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [proof]);
-
-  if (draft === undefined) {
+  if (draft === undefined || status === "loading" || (draft !== null && details === undefined)) {
     return (
       <div className="container-page pt-32">
         <Skeleton className="h-96" />
@@ -58,160 +36,135 @@ export function Checkout() {
     );
   }
   if (draft === null || !details || details.seats.length === 0) {
-    return (
-      <MissingBooking
-        title="No booking in progress"
-        message="Choose a movie, showtime and seats first. Demo bookings are only kept for this browser session."
-      />
-    );
+    return <MissingBooking title="No booking in progress" message="Choose a movie, showtime and seats first. Your selection is only remembered in this browser tab." />;
   }
   if (isExpired(draft)) {
+    return <MissingBooking title="Your selection expired" message="Seat selections are only remembered for 30 minutes. Please pick your seats again." />;
+  }
+
+  if (status === "anonymous" || !user) {
     return (
-      <MissingBooking
-        title="Your selection expired"
-        message="For this demo, seat selections expire after 30 minutes. Please pick your seats again."
-      />
+      <div className="container-page pb-20 pt-28 sm:pt-32">
+        <BackLink href={`/booking/${details.showtime.id}`}>Change seats</BackLink>
+        <h1 className="display mt-2 text-4xl sm:text-6xl">Sign in to reserve</h1>
+        <p className="mt-3 max-w-xl text-muted">
+          Your {details.seats.length} selected seat{details.seats.length > 1 ? "s are" : " is"} remembered. Sign in or create an account to reserve{" "}
+          {details.seats.length > 1 ? "them" : "it"}; seats are only held once you do.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/login?next=/booking/checkout" className="inline-flex min-h-12 items-center rounded-control bg-accent px-7 font-semibold text-on-accent hover:bg-accent-hover">
+            Sign in
+          </Link>
+          <Link href="/register" className="inline-flex min-h-12 items-center rounded-control border border-line px-7 font-semibold hover:border-accent">
+            Create account
+          </Link>
+        </div>
+      </div>
     );
   }
 
-  const { movie, cinema, screen, showtime, seats, subtotal, fee, total } = details;
+  const { movie, cinema, screen, showtime, seats, subtotal, fee, total, api } = details;
 
-  function onPickProof(e: React.ChangeEvent<HTMLInputElement>) {
-    setProofError(null);
-    const file = e.target.files?.[0];
-    if (!file) return setProof(null);
-    if (file.size > 5 * 1024 * 1024) {
-      setProof(null);
-      setProofError("File is larger than 5 MB.");
-      return;
+  async function reserve() {
+    if (!draft || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { booking } = await bookingsApi.create(
+        { showtime: draft.showtimeId, seats: draft.seatIds, ...(promo.trim() ? { promo_code: promo.trim() } : {}) },
+        draft.idempotencyKey,
+      );
+      clearDraft();
+      router.push(`/account/bookings/${booking.id}`);
+    } catch (e) {
+      if (!(e instanceof ApiError)) return setError({ message: "Something went wrong. Please try again." });
+      if (e.code === "seats_unavailable") setError({ message: "Some seats were just taken. Please choose different seats.", seats: e.errors.seats });
+      else if (e.fieldError("promo_code")) setError({ message: e.fieldError("promo_code")!, field: "promo" });
+      else if (e.code === "email_unverified") setError({ message: "Please verify your email address first. Check your inbox, or resend the link from your account page." });
+      else if (e.isNetwork) setError({ message: "We could not reach the server. Your request was not lost: try again and you will not be charged twice." });
+      else setError({ message: e.message });
+    } finally {
+      setBusy(false);
     }
-    // Preview only. The file never leaves this browser tab.
-    setProof({ name: file.name, url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null });
   }
-
-  function onSubmit(values: FormValues) {
-    if (!draft) return;
-    confirmDemoBooking(draft, {
-      customer: { fullName: values.fullName, email: values.email, phone: values.phone },
-      paymentReference: values.paymentReference ?? "",
-      proofFileName: proof?.name,
-      total,
-    });
-    router.push("/booking/confirmation");
-  }
-
-  const field =
-    "h-12 w-full rounded-control border bg-background px-3 text-base outline-none placeholder:text-muted focus:border-accent";
 
   return (
     <div className="container-page pb-20 pt-28 sm:pt-32">
       <BackLink href={`/booking/${showtime.id}`}>Change seats</BackLink>
-      <p className="eyebrow mt-2">Checkout</p>
-      <h1 className="display mt-2 text-4xl sm:text-6xl">Review &amp; pay by bank transfer</h1>
-      <DemoNotice className="mt-6">
-        This page is a frontend demonstration. No payment is processed, nothing is uploaded and no ticket is issued.
-      </DemoNotice>
+      <p className="eyebrow mt-2">Review</p>
+      <h1 className="display mt-2 text-4xl sm:text-6xl">Reserve your seats</h1>
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_24rem]">
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex min-w-0 flex-col gap-8">
-          <fieldset className="rounded-card border border-line bg-elevated p-5 sm:p-6">
-            <legend className="display px-2 text-2xl">Your details</legend>
-            <div className="mt-2 grid gap-5 sm:grid-cols-2">
-              <Field label="Full name" error={errors.fullName?.message} className="sm:col-span-2">
-                <input {...register("fullName")} autoComplete="name" className={field + (errors.fullName ? " border-red-500" : " border-line")} aria-invalid={!!errors.fullName} />
-              </Field>
-              <Field label="Email" error={errors.email?.message}>
-                <input {...register("email")} type="email" autoComplete="email" className={field + (errors.email ? " border-red-500" : " border-line")} aria-invalid={!!errors.email} />
-              </Field>
-              <Field label="Phone" error={errors.phone?.message}>
-                <input {...register("phone")} type="tel" autoComplete="tel" className={field + (errors.phone ? " border-red-500" : " border-line")} aria-invalid={!!errors.phone} />
-              </Field>
-            </div>
-          </fieldset>
-
-          <fieldset className="rounded-card border border-line bg-elevated p-5 sm:p-6">
-            <legend className="display px-2 text-2xl">Payment method</legend>
-            <label className="mt-2 flex items-center gap-3 rounded-control border border-accent bg-accent/10 p-4">
-              <input type="radio" name="method" defaultChecked readOnly className="size-4 accent-[var(--accent)]" />
-              <Landmark className="size-5 text-accent-text" aria-hidden />
-              <span className="font-semibold">Bank transfer</span>
-              <span className="ml-auto text-xs text-muted">Only option</span>
-            </label>
-
-            <div className="mt-5 rounded-card border border-line bg-surface p-4 text-sm">
-              <p className="font-semibold">Demo bank details (fictional)</p>
-              <dl className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
-                {(
-                  [
-                    ["Bank", siteConfig.demoBank.bankName],
-                    ["Account name", siteConfig.demoBank.accountName],
-                    ["Account number", siteConfig.demoBank.accountNumber],
-                    ["Branch", siteConfig.demoBank.branch],
-                    ["SWIFT/BIC", siteConfig.demoBank.swift],
-                    ["Amount", formatPrice(total)],
-                  ] as const
-                ).map(([k, v]) => (
-                  <div key={k}>
-                    <dt className="text-muted">{k}</dt>
-                    <dd className="font-semibold">{v}</dd>
-                  </div>
-                ))}
-              </dl>
-              <ol className="mt-4 list-decimal space-y-1 pl-5 text-muted">
-                <li>Transfer the total to the account above using your bank&apos;s app. (Demo: do not send real money.)</li>
-                <li>Use your booking reference as the transfer description.</li>
-                <li>Enter your transfer reference below and optionally attach a proof preview.</li>
-                <li>In a real system, staff would verify the transfer manually before issuing tickets.</li>
-              </ol>
-            </div>
-
-            <div className="mt-5 grid gap-5 sm:grid-cols-2">
-              <Field label="Payment reference (optional)" error={errors.paymentReference?.message}>
-                <input {...register("paymentReference")} placeholder="e.g. TRX-000000" className={field + " border-line"} />
-              </Field>
-              <div>
-                <label htmlFor="proof" className="mb-1.5 block text-sm font-semibold">
-                  Proof of transfer (optional, demo)
-                </label>
-                <label
-                  htmlFor="proof"
-                  className="flex min-h-12 cursor-pointer items-center gap-2 rounded-control border border-dashed border-line px-3 text-sm text-muted transition hover:border-accent hover:text-foreground focus-within:border-accent"
-                >
-                  <Upload className="size-4" aria-hidden />
-                  <span className="truncate">{proof ? proof.name : "Choose image or PDF"}</span>
-                </label>
-                <input id="proof" type="file" accept="image/*,application/pdf" onChange={onPickProof} className="sr-only" />
-                {proofError ? (
-                  <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">
-                    ⚠ {proofError}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-muted">Preview only. The file stays in your browser.</p>
-                )}
+        <div className="flex min-w-0 flex-col gap-6">
+          <section className="rounded-card border border-line bg-elevated p-5 sm:p-6" aria-labelledby="how-it-works">
+            <h2 id="how-it-works" className="display text-2xl">
+              How it works
+            </h2>
+            <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-muted">
+              <li>
+                We hold your seats for <strong className="text-foreground">15 minutes</strong> while you pay by bank transfer.
+              </li>
+              <li>Upload your transfer proof. A member of staff verifies it and your tickets are issued.</li>
+              <li>If nothing is submitted in time, the seats are released automatically.</li>
+            </ol>
+            <p className="mt-4 flex items-start gap-2 text-sm">
+              <ShieldCheck className="mt-0.5 size-4 shrink-0 text-accent-text" aria-hidden />
+              <span>
+                Booking as <strong>{user.name}</strong> ({user.email}).
+              </span>
+            </p>
+            {!user.email_verified ? (
+              <div className="mt-4">
+                <FormMessage>Your email address is not verified yet. You need to verify it before you can reserve seats.</FormMessage>
               </div>
-            </div>
-            {proof?.url ? (
-              // eslint-disable-next-line @next/next/no-img-element -- blob: preview of a local file
-              <img src={proof.url} alt={`Preview of ${proof.name}`} className="mt-4 max-h-56 rounded-control border border-line object-contain" />
             ) : null}
-          </fieldset>
+          </section>
 
-          <div>
-            <label className="flex items-start gap-3 text-sm">
-              <input type="checkbox" {...register("agree")} className="mt-0.5 size-5 accent-[var(--accent)]" aria-invalid={!!errors.agree} />
-              <span>I understand this is a frontend demonstration and no real booking, payment or ticket will be created.</span>
+          <section className="rounded-card border border-line bg-elevated p-5 sm:p-6">
+            <label htmlFor="promo" className="block text-sm font-semibold">
+              Promo code (optional)
             </label>
-            {errors.agree ? (
-              <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
-                ⚠ {errors.agree.message}
-              </p>
-            ) : null}
-          </div>
+            <input
+              id="promo"
+              value={promo}
+              onChange={(e) => setPromo(e.target.value)}
+              maxLength={48}
+              autoComplete="off"
+              className={inputClass(error?.field === "promo") + " mt-1.5 max-w-xs uppercase"}
+              aria-invalid={error?.field === "promo"}
+            />
+            <p className="mt-1.5 text-sm text-muted">Discounts are calculated and confirmed by the server when you reserve.</p>
+          </section>
 
-          <Button type="submit" size="lg" className="w-full sm:w-fit">
-            Place demo booking
+          <label className="flex items-start gap-3 text-sm">
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 size-5 accent-[var(--accent)]" />
+            <span>
+              I agree to the{" "}
+              <Link href="/terms" className="font-semibold text-accent-text hover:underline">
+                terms
+              </Link>{" "}
+              and understand my seats are held for 15 minutes.
+            </span>
+          </label>
+
+          {error ? (
+            <div>
+              <FormMessage>
+                {error.message}
+                {error.seats?.length ? ` (${error.seats.join(", ")})` : ""}
+              </FormMessage>
+              {error.seats?.length ? (
+                <Link href={`/booking/${showtime.id}`} className="mt-2 inline-block text-sm font-semibold text-accent-text hover:underline" onClick={() => clearDraft()}>
+                  Back to the seat map
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
+
+          <Button size="lg" className="w-full sm:w-fit" disabled={!agree || busy || !user.email_verified} onClick={reserve}>
+            {busy ? "Reserving…" : "Reserve seats"}
           </Button>
-        </form>
+        </div>
 
         <aside aria-label="Order summary" className="h-fit rounded-card border border-line bg-elevated p-5 shadow-card lg:sticky lg:top-28">
           <h2 className="display text-2xl">{movie.title}</h2>
@@ -219,13 +172,13 @@ export function Checkout() {
             {cinema.name} · {screen.name}
           </p>
           <p className="text-sm text-muted">
-            <span suppressHydrationWarning>{formatISODate(draft.dateISO)}</span> · {formatTime(showtime.time)}
+            {formatISODate(showtime.date)} · {formatTime(showtime.time)}
           </p>
           <ul className="mt-4 divide-y divide-line border-y border-line text-sm">
             {seats.map((s) => (
               <li key={s.id} className="flex justify-between py-2">
                 <span>
-                  Seat <strong>{s.id}</strong> <span className="text-muted">· {CATEGORY_LABEL[s.category]}</span>
+                  Seat <strong>{s.id}</strong> <span className="text-muted">· {s.categoryName}</span>
                 </span>
                 <span>{formatPrice(s.price)}</span>
               </li>
@@ -236,47 +189,24 @@ export function Checkout() {
               <dt className="text-muted">Tickets ({seats.length})</dt>
               <dd>{formatPrice(subtotal)}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-muted">
-                Service fee ({formatPrice(SERVICE_FEE_PER_SEAT)} × {seats.length}, demo)
-              </dt>
-              <dd>{formatPrice(fee)}</dd>
-            </div>
+            {fee > 0 ? (
+              <div className="flex justify-between">
+                <dt className="text-muted">
+                  Service fee ({formatPrice(api.fee_per_seat ?? 0)} × {seats.length})
+                </dt>
+                <dd>{formatPrice(fee)}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between border-t border-line pt-3 text-lg font-bold">
               <dt>Total</dt>
               <dd>{formatPrice(total)}</dd>
             </div>
           </dl>
+          <p className="mt-3 flex items-start gap-2 text-xs text-muted">
+            <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden /> Final amount is confirmed by the server when you reserve.
+          </p>
         </aside>
       </div>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  error,
-  children,
-  className,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactElement<{ id?: string }>;
-  className?: string;
-}) {
-  const id = label.replace(/\W+/g, "-").toLowerCase();
-  return (
-    <div className={className}>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-semibold">
-        {label}
-      </label>
-
-      {cloneElement(children, { id })}
-      {error ? (
-        <p role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">
-          ⚠ {error}
-        </p>
-      ) : null}
     </div>
   );
 }

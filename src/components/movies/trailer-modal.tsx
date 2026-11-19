@@ -47,8 +47,7 @@ export function TrailerModal({ movie, open, onClose }: { movie: Movie; open: boo
                 </span>
                 <p className="display text-2xl sm:text-3xl">Trailer coming soon</p>
                 <p className="max-w-sm text-sm text-white/80">
-                  No trailer URL is configured for this demo title. Add a YouTube link to <code>trailerUrl</code> in the
-                  movie data to enable playback.
+                  The trailer for this film has not been added yet.
                 </p>
               </div>
             </div>

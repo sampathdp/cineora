@@ -11,9 +11,11 @@ import { Logo } from "./logo";
 import { ThemeToggle } from "./theme-toggle";
 import { SearchOverlay } from "./search-overlay";
 import { MobileNav } from "./mobile-nav";
+import { useAuth } from "@/providers/auth-provider";
 
 export function Header() {
   const pathname = usePathname();
+  const { status, user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -28,6 +30,11 @@ export function Header() {
   // Home keeps a transparent header over the hero until the user scrolls.
   const overHero = pathname === "/" && !scrolled;
   const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
+
+  // The admin portal has its own dedicated dashboard chrome and topbar.
+  if (pathname.startsWith("/admin")) {
+    return null;
+  }
 
   return (
     <>
@@ -76,12 +83,19 @@ export function Header() {
             </button>
             <ThemeToggle className="max-lg:hidden" />
             <Link
-              href="/contact"
-              aria-label="Account (demo only)"
+              href={user ? "/account" : "/login"}
+              aria-label={user ? `Your account (${user.name})` : "Sign in"}
               className="grid size-10 place-items-center rounded-full transition hover:bg-current/10 max-sm:hidden"
-              title="Accounts are not available in this frontend demo"
+              title={user ? "Your account" : "Sign in"}
             >
-              <User className="size-5" aria-hidden />
+              {user ? (
+                <span className="grid size-7 place-items-center rounded-full bg-accent text-xs font-bold text-on-accent" aria-hidden>
+                  {user.name.trim().charAt(0).toUpperCase()}
+                </span>
+              ) : (
+                <User className="size-5" aria-hidden />
+              )}
+              {status === "loading" ? <span className="sr-only">Checking sign-in status</span> : null}
             </Link>
             <Link href="/movies" className={buttonClass("primary", "sm", "max-md:hidden")}>
               <Ticket className="size-4" aria-hidden /> Get Tickets

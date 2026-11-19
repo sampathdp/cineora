@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 import { Film, Search, X } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
-import { movies } from "@/data/movies";
+import { useMovieSearch } from "@/lib/api/use-movie-search";
 
 interface Result {
   key: string;
@@ -15,17 +15,6 @@ interface Result {
 }
 
 const icons = { Movie: Film } as const;
-
-const index: (Result & { haystack: string })[] = [
-  ...movies.map((m) => ({
-    key: `m-${m.slug}`,
-    href: `/movies/${m.slug}`,
-    title: m.title,
-    meta: m.genres.join(" · "),
-    kind: "Movie" as const,
-    haystack: `${m.title} ${m.genres.join(" ")} ${m.director}`,
-  })),
-];
 
 export function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
@@ -39,17 +28,21 @@ function SearchBody({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState("");
   const deferred = useDeferredValue(query.trim().toLowerCase());
 
-  const results = useMemo(() => {
-    if (!deferred) return [];
-    const terms = deferred.split(/\s+/);
-    return index.filter((r) => terms.every((t) => r.haystack.toLowerCase().includes(t))).slice(0, 12);
-  }, [deferred]);
+  const { movies, loading, error } = useMovieSearch({ q: deferred || undefined, per_page: 12 }, { enabled: deferred.length > 0 });
+
+  const results: Result[] = useMemo(
+    () =>
+      deferred && movies
+        ? movies.map((m) => ({ key: `m-${m.slug}`, href: `/movies/${m.slug}`, title: m.title, meta: m.genres.join(" · "), kind: "Movie" as const }))
+        : [],
+    [deferred, movies],
+  );
 
   return (
     <div className="p-4 pt-5 sm:p-6">
       <form role="search" onSubmit={(e) => e.preventDefault()} className="relative mr-12">
         <label htmlFor="site-search" className="sr-only">
-          Search movies and genres
+          Search movies
         </label>
         <Search className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-muted" aria-hidden />
         <input
@@ -59,7 +52,7 @@ function SearchBody({ onClose }: { onClose: () => void }) {
           autoComplete="off"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search movies, genres…"
+          placeholder="Search movies…"
           className="h-12 w-full rounded-control border border-line bg-surface pl-12 pr-11 text-base outline-none placeholder:text-muted focus:border-accent [&::-webkit-search-cancel-button]:hidden"
         />
         {query ? (
@@ -77,11 +70,17 @@ function SearchBody({ onClose }: { onClose: () => void }) {
       <div aria-live="polite" className="mt-4 max-h-[55vh] overflow-auto">
         {!deferred ? (
           <p className="px-1 py-6 text-center text-sm text-muted">
-            Start typing to search. Try “thriller”, “drama” or “Central”.
+            Start typing a movie title to search.
           </p>
+        ) : error ? (
+          <p role="alert" className="px-1 py-8 text-center text-muted">
+            {error}
+          </p>
+        ) : loading ? (
+          <p className="px-1 py-8 text-center text-muted">Searching…</p>
         ) : results.length === 0 ? (
           <p className="px-1 py-8 text-center text-muted">
-            No results for <strong className="text-foreground">“{query}”</strong>. Check the spelling or try a genre.
+            No results for <strong className="text-foreground">“{query}”</strong>. Check the spelling and try again.
           </p>
         ) : (
           <ul className="divide-y divide-line">

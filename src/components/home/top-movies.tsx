@@ -4,15 +4,14 @@ import Link from "next/link";
 import { useRef } from "react";
 import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import type { Movie } from "@/types/movie";
-import { cinemas } from "@/data/cinemas";
-import { showtimesFor } from "@/data/showtimes";
+import type { ApiShowtime } from "@/lib/api/catalog";
 import { Art } from "@/components/ui/art";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { buttonClass } from "@/components/ui/button";
 import { TrailerButton } from "@/components/movies/trailer-modal";
-import { formatTime } from "@/lib/formatters";
+import { formatISODate, formatTime, zonedParts } from "@/lib/formatters";
 
-export function TopMovies({ movies }: { movies: Movie[] }) {
+export function TopMovies({ movies, next }: { movies: Movie[]; next: Record<string, ApiShowtime> }) {
   const ref = useRef<HTMLUListElement>(null);
   const scroll = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.7, behavior: "smooth" });
 
@@ -42,8 +41,8 @@ export function TopMovies({ movies }: { movies: Movie[] }) {
       </div>
       <ul ref={ref} className="scrollbar-none mt-10 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 sm:px-6 lg:px-[max(2rem,calc((100vw-80rem)/2+2rem))]">
         {movies.map((m) => {
-          const next = showtimesFor({ movieSlug: m.slug }).find((s) => s.dayOffset === 0);
-          const cinema = next && cinemas.find((c) => c.slug === next.cinemaSlug);
+          const upcoming = next[m.slug];
+          const when = upcoming ? zonedParts(upcoming.starts_at, upcoming.cinema.timezone) : null;
           return (
             <li key={m.slug} className="w-[82%] shrink-0 snap-start sm:w-[46%] lg:w-[31%]">
               <article className="group overflow-hidden rounded-card border border-line bg-elevated shadow-card">
@@ -64,9 +63,9 @@ export function TopMovies({ movies }: { movies: Movie[] }) {
                       {m.title}
                     </Link>
                   </h3>
-                  {next && cinema ? (
+                  {upcoming && when ? (
                     <p className="mt-1 text-sm text-muted">
-                      Today {formatTime(next.time)} · {cinema.name} <span className="text-xs">(mock showtime)</span>
+                      Next: {formatISODate(when.date, { weekday: "short", day: "numeric", month: "short" })} {formatTime(when.time)} · {upcoming.cinema.name}
                     </p>
                   ) : null}
                   <Link href={`/movies/${m.slug}#showtimes`} className={buttonClass("primary", "sm", "mt-4")}>

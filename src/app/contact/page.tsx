@@ -1,28 +1,30 @@
 import type { Metadata } from "next";
-import { Mail, MapPin, Phone } from "lucide-react";
-import { siteConfig } from "@/config/site";
+import { Clock, Mail, MapPin, Phone } from "lucide-react";
+import { getSite } from "@/lib/api/content";
 import { PageHero } from "@/components/ui/section-heading";
-import { DemoNotice } from "@/components/ui/misc";
 import { ContactForm } from "@/components/layout/contact-form";
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Get in touch with the team (frontend demo form).",
+  description: "Get in touch with the team.",
   openGraph: { title: "Contact | CINEORA" },
 };
 
-export default function ContactPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ContactPage() {
+  const site = await getSite();
   const rows = [
-    { icon: MapPin, label: "Address", value: siteConfig.contact.address },
-    { icon: Phone, label: "Phone", value: siteConfig.contact.phone },
-    { icon: Mail, label: "Email", value: siteConfig.contact.email },
+    { icon: MapPin, label: "Address", value: site.contact.address },
+    { icon: Phone, label: "Phone", value: site.contact.phone },
+    { icon: Mail, label: "Email", value: site.contact.email },
+    ...(site.contact.hours ? [{ icon: Clock, label: "Hours", value: site.contact.hours }] : []),
   ];
   return (
     <>
-      <PageHero eyebrow="Say hello" title="Contact Us" description="Questions about screenings, groups or private hire? Placeholder details below." />
+      <PageHero eyebrow="Say hello" title="Contact Us" description="Questions about screenings, groups or private hire? We would love to hear from you." />
       <section className="container-page grid gap-12 py-12 lg:grid-cols-[1fr_22rem] lg:py-16">
         <div>
-          <DemoNotice className="mb-6">This form validates input but does not send anything.</DemoNotice>
           <ContactForm />
         </div>
         <aside>

@@ -49,3 +49,21 @@ export function releaseLabel(offsetDays: number) {
   if (offsetDays <= 0) return "Now Showing";
   return `Opens ${formatOffsetDate(offsetDays, { day: "numeric", month: "short" })}`;
 }
+
+/**
+ * Calendar date and wall-clock time of an instant in a given IANA time zone.
+ * Always explicit about the zone, so server and browser render identically.
+ */
+export function zonedParts(iso: string, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "00";
+  return { date: `${get("year")}-${get("month")}-${get("day")}`, time: `${get("hour")}:${get("minute")}` };
+}

@@ -3,16 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { genres, nowPlaying } from "@/data/movies";
+import type { Movie } from "@/types/movie";
 import { MovieCard } from "@/components/movies/movie-card";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { EmptyState } from "@/components/ui/misc";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function NowPlaying() {
+export function NowPlaying({ movies, genres }: { movies: Movie[]; genres: string[] }) {
   const [genre, setGenre] = useState<string>("All");
-  const list = nowPlaying.filter((m) => genre === "All" || m.genres.includes(genre as never)).slice(0, 8);
+  const list = movies.filter((m) => genre === "All" || m.genres.includes(genre as never)).slice(0, 8);
 
   return (
     <section className="section-y bg-surface" aria-labelledby="now-playing-heading">

@@ -3,31 +3,33 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Box, Check } from "lucide-react";
-import type { Seat, SeatCategory } from "@/types/booking";
-import type { Showtime } from "@/types/cinema";
+import type { Seat } from "@/types/booking";
+import type { ApiShowtime } from "@/lib/api/catalog";
 import { siteConfig } from "@/config/site";
-import { CATEGORY_LABEL } from "@/lib/seats";
 import { saveDraft } from "@/lib/booking-store";
-import { formatPrice, toISODate } from "@/lib/formatters";
+import { formatPrice, zonedParts } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  showtime: Showtime;
+  showtime: ApiShowtime;
   rows: Seat[][];
-  date?: Date;
+  /** False once ticket sales for this showtime have closed. */
+  bookable: boolean;
   /** Inline on the movie page: summary sits under the map instead of in a sidebar. */
   embedded?: boolean;
 }
 
-const catStyle: Record<SeatCategory, string> = {
+const catStyle: Record<string, string> = {
   standard: "border-black/25 bg-foreground/15 text-foreground hover:-translate-y-0.5 hover:bg-foreground/30",
   premium: "border-black/25 bg-accent/25 text-foreground hover:-translate-y-0.5 hover:bg-accent/50",
   lounge: "border-black/25 bg-violet-400/30 text-foreground hover:-translate-y-0.5 hover:bg-violet-400/55",
 };
+const fallbackStyle = "border-black/25 bg-sky-400/30 text-foreground hover:-translate-y-0.5 hover:bg-sky-400/55";
+const styleFor = (category: string) => catStyle[category] ?? fallbackStyle;
 
 /** Seat map + summary. Saves a draft and continues to checkout. */
-export function SeatSelector({ showtime, rows, date, embedded = false }: Props) {
+export function SeatSelector({ showtime, rows, bookable, embedded = false }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +41,8 @@ export function SeatSelector({ showtime, rows, date, embedded = false }: Props) 
   const max = siteConfig.maxSeatsPerBooking;
 
   const prices = useMemo(() => {
-    const map = new Map<SeatCategory, number>();
-    allSeats.forEach((s) => map.set(s.category, s.price));
+    const map = new Map<string, { name: string; price: number }>();
+    allSeats.forEach((s) => map.set(s.category, { name: s.categoryName, price: s.price }));
     return Array.from(map.entries());
   }, [allSeats]);
 
@@ -57,20 +59,27 @@ export function SeatSelector({ showtime, rows, date, embedded = false }: Props) 
   }
 
   function onContinue() {
+    if (!bookable) {
+      setError("Ticket sales for this showtime have closed.");
+      return;
+    }
     if (!chosen.length) {
       setError("Select at least one seat to continue.");
       return;
     }
     saveDraft({
       showtimeId: showtime.id,
-      dateISO: toISODate(date ?? new Date()),
+      dateISO: zonedParts(showtime.starts_at, showtime.cinema.timezone).date,
       seatIds: selected,
       createdAt: Date.now(),
     });
     router.push("/booking/checkout");
   }
 
-  const mid = Math.floor((rows[0]?.length ?? 0) / 2);
+  const maxCol = Math.max(...allSeats.map((s) => s.col), 1);
+  const mid = Math.floor(maxCol / 2);
+  // Grid track 1 is the row letter and track mid+2 the centre aisle; walkway gaps are simply unused columns.
+  const trackOf = (col: number) => (col <= mid ? col + 1 : col + 2);
 
   const map = (
     <section aria-label="Seat map" className="min-w-0">
@@ -90,11 +99,11 @@ export function SeatSelector({ showtime, rows, date, embedded = false }: Props) 
             <span className="size-4 rounded-t-md bg-foreground/5" />
           }
         />
-        {prices.map(([cat, price]) => (
+        {prices.map(([cat, info]) => (
           <LegendItem
             key={cat}
-            label={`${CATEGORY_LABEL[cat]} ${formatPrice(price)}`}
-            swatch={<span className={cn("size-4 rounded-t-md border", catStyle[cat])} />}
+            label={`${info.name} ${formatPrice(info.price)}`}
+            swatch={<span className={cn("size-4 rounded-t-md border", styleFor(cat))} />}
           />
         ))}
       </div>
@@ -109,7 +118,7 @@ export function SeatSelector({ showtime, rows, date, embedded = false }: Props) 
           <Box className="size-3.5" aria-hidden /> {view3d ? "3D view" : "Flat view"}
         </button>
 
-        <div className="mx-auto mt-2 max-w-2xl" style={{ perspective: "1100px" }}>
+        <div className="mx-auto mt-2 max-w-2xl px-2 sm:px-4" style={{ perspective: "1100px" }}>
           <div aria-hidden className="relative mx-auto mb-8 w-[88%]">
             <div className="h-10 rounded-[50%] border-t-[3px] border-accent shadow-[0_-12px_40px_-6px_var(--accent)]" />
             <div className="pointer-events-none absolute inset-x-6 top-3 h-24 bg-gradient-to-b from-accent/25 to-transparent [clip-path:polygon(0_0,100%_0,100%_40%,92%_100%,8%_100%,0_40%)]" />
@@ -126,20 +135,20 @@ export function SeatSelector({ showtime, rows, date, embedded = false }: Props) 
               <div
                 key={row[0].row}
                 className="grid items-center gap-x-1 sm:gap-x-1.5"
-                style={{ gridTemplateColumns: `1.25rem repeat(${mid}, minmax(0, 1fr)) 1.5rem repeat(${row.length - mid}, minmax(0, 1fr)) 1.25rem` }}
+                style={{ gridTemplateColumns: `1.25rem repeat(${mid}, minmax(0, 1fr)) 1.5rem repeat(${maxCol - mid}, minmax(0, 1fr)) 1.25rem` }}
               >
-                <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted">
+                <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted" style={{ gridColumnStart: 1 }}>
                   {row[0].row}
                 </span>
-                {row.map((seat, i) => {
+                {row.map((seat) => {
                   const isSel = selected.includes(seat.id);
                   return (
-                    <span key={seat.id} className="flex" style={i === mid ? { gridColumnStart: mid + 3 } : undefined}>
+                    <span key={seat.id} className="flex" style={{ gridColumnStart: trackOf(seat.col) }}>
                       <button
                         type="button"
                         disabled={seat.unavailable}
                         aria-pressed={seat.unavailable ? undefined : isSel}
-                        aria-label={`Seat ${seat.id}, ${CATEGORY_LABEL[seat.category]}, ${formatPrice(seat.price)}${seat.unavailable ? ", unavailable" : isSel ? ", selected" : ""}`}
+                        aria-label={`Seat ${seat.id}, ${seat.categoryName}, ${formatPrice(seat.price)}${seat.unavailable ? ", unavailable" : isSel ? ", selected" : ""}`}
                         onClick={() => toggle(seat)}
                         className={cn(
                           "grid aspect-square w-full max-w-11 place-items-center rounded-t-lg rounded-b-[0.3rem] border-b-[3px] text-[0.6rem] font-semibold transition duration-150 sm:text-xs",
@@ -147,7 +156,7 @@ export function SeatSelector({ showtime, rows, date, embedded = false }: Props) 
                             ? "cursor-not-allowed border-transparent bg-foreground/5 text-transparent"
                             : isSel
                               ? "-translate-y-0.5 border-black/30 bg-accent text-on-accent shadow-[0_8px_20px_-4px_var(--accent)]"
-                              : catStyle[seat.category],
+                              : styleFor(seat.category),
                         )}
                       >
                         {seat.unavailable ? null : isSel ? <Check className="size-3.5 sm:size-4" aria-hidden /> : seat.number}
@@ -155,7 +164,7 @@ export function SeatSelector({ showtime, rows, date, embedded = false }: Props) 
                     </span>
                   );
                 })}
-                <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted">
+                <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted" style={{ gridColumnStart: maxCol + 3 }}>
                   {row[0].row}
                 </span>
               </div>
@@ -251,7 +260,7 @@ function Summary({
             {chosen.map((s) => (
               <li key={s.id} className="flex justify-between py-2">
                 <span>
-                  <strong>{s.id}</strong> <span className="text-muted">· {CATEGORY_LABEL[s.category]}</span>
+                  <strong>{s.id}</strong> <span className="text-muted">· {s.categoryName}</span>
                 </span>
                 <span>{formatPrice(s.price)}</span>
               </li>

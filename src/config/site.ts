@@ -3,10 +3,10 @@ export const siteConfig = {
   name: "CINEORA",
   tagline: "Cinema, booked beautifully.",
   description:
-    "Cineora is a frontend demonstration of a premium movie ticket booking experience.",
+    "Book cinema tickets online: pick your film, choose your seats and pay by bank transfer.",
   /** Set NEXT_PUBLIC_SITE_URL to enable canonical URLs / metadataBase. */
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "",
-  currency: "USD",
+  currency: "KRW",
   locale: "en-US",
   maxSeatsPerBooking: 8,
   /** Draft bookings older than this are treated as expired (ms). */
@@ -33,6 +33,8 @@ export const siteConfig = {
   nav: [
     { label: "Home", href: "/" },
     { label: "Movies", href: "/movies" },
+    { label: "Events", href: "/events" },
+    { label: "News", href: "/news" },
     { label: "About", href: "/about" },
     { label: "Contact", href: "/contact" },
   ],

@@ -1,45 +1,29 @@
 "use client";
 
-import type { Seat } from "@/types/booking";
-import type { Showtime } from "@/types/cinema";
-import { formatDate, formatTime } from "@/lib/formatters";
-import { useDays } from "@/lib/use-today";
-import { BackLink, DemoNotice } from "@/components/ui/misc";
-import { SeatSelector } from "./seat-selector";
+import type { ApiShowtime } from "@/lib/api/catalog";
+import { formatISODate, formatTime, zonedParts } from "@/lib/formatters";
+import { BackLink } from "@/components/ui/misc";
+import { LiveSeatMap } from "./live-seat-map";
 
-interface Props {
-  showtime: Showtime;
-  movieTitle: string;
-  movieSlug: string;
-  cinemaName: string;
-  screenName: string;
-  rows: Seat[][];
-}
-
-export function SeatPicker({ showtime, movieTitle, movieSlug, cinemaName, screenName, rows }: Props) {
-  const days = useDays(8);
-  const date = days?.[showtime.dayOffset];
+export function SeatPicker({ showtime }: { showtime: ApiShowtime }) {
+  const { date, time } = zonedParts(showtime.starts_at, showtime.cinema.timezone);
 
   return (
     <div className="container-page pb-32 pt-28 sm:pt-32 lg:pb-16">
-      <BackLink href={`/movies/${movieSlug}`}>Back to movie</BackLink>
+      <BackLink href={`/movies/${showtime.movie.slug}`}>Back to movie</BackLink>
       <header className="mt-2">
         <p className="eyebrow">Select seats</p>
-        <h1 className="display mt-2 text-4xl sm:text-6xl">{movieTitle}</h1>
+        <h1 className="display mt-2 text-4xl sm:text-6xl">{showtime.movie.title}</h1>
         <p className="mt-2 text-muted">
-          {cinemaName} · {screenName} ·{" "}
-          <span suppressHydrationWarning>
-            {date ? formatDate(date, { weekday: "short", day: "numeric", month: "short" }) : "…"}
-          </span>{" "}
-          · {formatTime(showtime.time)}
+          {showtime.cinema.name} · {showtime.room.name} · {formatISODate(date, { weekday: "short", day: "numeric", month: "short" })} · {formatTime(time)}
         </p>
       </header>
 
-      <DemoNotice className="mt-6">
-        Unavailable seats are sample states. No real reservation or seat locking takes place.
-      </DemoNotice>
+      <p className="mt-4 text-sm text-muted">Availability and prices are live from the server. Seats are only held once you reserve them at the next step.</p>
 
-      <SeatSelector showtime={showtime} rows={rows} date={date} />
+      <div className="mt-6">
+        <LiveSeatMap showtime={showtime} />
+      </div>
     </div>
   );
 }

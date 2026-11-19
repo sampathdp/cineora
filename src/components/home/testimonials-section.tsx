@@ -1,10 +1,14 @@
 import { Quote } from "lucide-react";
-import { testimonials } from "@/data/testimonials";
+import type { PublicTestimonial } from "@/lib/api/content";
 import { StarRating } from "@/components/ui/misc";
 import { Reveal } from "@/components/ui/reveal";
 import { cn } from "@/lib/utils";
 
-export function TestimonialsSection() {
+const TONES = ["#f0782b", "#2b4a63", "#6b3b8f", "#1f7a5a", "#a33a4a"];
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase()).join("");
+
+export function TestimonialsSection({ testimonials }: { testimonials: PublicTestimonial[] }) {
+  if (testimonials.length === 0) return null;
   const average = testimonials.reduce((sum, t) => sum + t.rating, 0) / testimonials.length;
 
   return (
@@ -22,14 +26,14 @@ export function TestimonialsSection() {
           <p className="mt-4 inline-flex items-center gap-3 rounded-full border border-line bg-elevated px-4 py-2 text-sm text-muted">
             <StarRating value={Math.round(average)} />
             <span>
-              <strong className="text-foreground">{average.toFixed(1)}</strong> average from demo reviews
+              <strong className="text-foreground">{average.toFixed(1)}</strong> average from customer reviews
             </span>
           </p>
         </div>
 
         <ul className="mt-14 grid gap-6 md:grid-cols-3 md:items-stretch">
           {testimonials.map((t, i) => (
-            <li key={t.id} className={cn("flex", i === 1 && "md:-translate-y-4")}>
+            <li key={`${t.name}-${i}`} className={cn("flex", i === 1 && "md:-translate-y-4")}>
               <Reveal className="flex w-full" delay={i * 0.1}>
                 <figure
                   className={cn(
@@ -43,10 +47,10 @@ export function TestimonialsSection() {
                   <figcaption className="mt-6 flex items-center gap-3 border-t border-line pt-5">
                     <span
                       className="grid size-12 shrink-0 place-items-center rounded-full font-bold text-white ring-2 ring-accent/30"
-                      style={{ background: t.tone }}
+                      style={{ background: TONES[i % TONES.length] }}
                       aria-hidden
                     >
-                      {t.initials}
+                      {initials(t.name)}
                     </span>
                     <span>
                       <span className="block font-bold">{t.name}</span>
@@ -59,9 +63,6 @@ export function TestimonialsSection() {
           ))}
         </ul>
 
-        <p className="mt-10 text-center text-xs text-muted">
-          Illustrative demo testimonials from fictional profiles, not real customer reviews.
-        </p>
       </div>
     </section>
   );

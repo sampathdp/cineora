@@ -2,14 +2,13 @@
 
 import { useSyncExternalStore } from "react";
 import { siteConfig } from "@/config/site";
-import type { BookingDraft, DemoBooking } from "@/types/booking";
+import type { BookingDraft } from "@/types/booking";
 
 /**
- * Tiny frontend-only store backed by sessionStorage. Swap the read/write
- * functions for API calls when a backend is introduced.
+ * Remembers the seats a visitor picked while they sign in and review the order (sessionStorage).
+ * It is only a convenience: nothing here reserves a seat, and the server decides price and availability.
  */
 const DRAFT_KEY = "cineora:draft";
-const BOOKING_KEY = "cineora:booking";
 
 const listeners = new Set<() => void>();
 const cache = new Map<string, { raw: string | null; value: unknown }>();
@@ -32,7 +31,7 @@ function write(key: string, value: unknown | null) {
     if (value === null) sessionStorage.removeItem(key);
     else sessionStorage.setItem(key, JSON.stringify(value));
   } catch {
-    /* storage unavailable: store silently no-ops */
+    /* storage unavailable: the draft simply is not remembered */
   }
   listeners.forEach((l) => l());
 }
@@ -48,35 +47,19 @@ function subscribe(cb: () => void) {
 
 export const isExpired = (d: BookingDraft) => Date.now() - d.createdAt > siteConfig.bookingTtlMs;
 
-export const saveDraft = (d: BookingDraft) => write(DRAFT_KEY, d);
+/** A fresh Idempotency-Key per selection: retries of the same checkout reuse it, a new selection gets a new one. */
+export function newIdempotencyKey() {
+  return `bk-${crypto.randomUUID()}`;
+}
+
+export const saveDraft = (d: Omit<BookingDraft, "idempotencyKey">) => write(DRAFT_KEY, { ...d, idempotencyKey: newIdempotencyKey() } satisfies BookingDraft);
 export const clearDraft = () => write(DRAFT_KEY, null);
-export const saveBooking = (b: DemoBooking) => write(BOOKING_KEY, b);
 
 /** Returns undefined before hydration, then the stored value or null. */
-function useStored<T>(key: string): T | null | undefined {
+export function useDraft(): BookingDraft | null | undefined {
   return useSyncExternalStore(
     subscribe,
-    () => read<T>(key),
+    () => read<BookingDraft>(DRAFT_KEY),
     () => undefined,
   );
-}
-
-export const useDraft = () => useStored<BookingDraft>(DRAFT_KEY);
-export const useBooking = () => useStored<DemoBooking>(BOOKING_KEY);
-
-export function generateReference() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < 6; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  return `CIN-${out}`;
-}
-
-/** Builds and stores a demo booking from the current draft. Returns the booking. */
-export function confirmDemoBooking(
-  draft: BookingDraft,
-  extra: Pick<DemoBooking, "customer" | "paymentReference" | "proofFileName" | "total">,
-): DemoBooking {
-  const booking: DemoBooking = { ...draft, ...extra, reference: generateReference(), confirmedAt: Date.now() };
-  saveBooking(booking);
-  return booking;
 }

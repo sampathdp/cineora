@@ -1,34 +1,18 @@
 import type { Metadata } from "next";
-import { PageHero } from "@/components/ui/section-heading";
-import { DemoNotice } from "@/components/ui/misc";
+import { LegalPage } from "@/components/content/legal-page";
 
-export const metadata: Metadata = {
-  title: "Terms & Conditions",
-  description: "Placeholder terms for the CINEORA frontend demo.",
-};
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Terms & Conditions", description: "The terms for booking tickets with Cineora." };
 
-const sections = [
-  ["Demonstration only", "This website is a frontend demonstration. No real bookings, payments or tickets are created, and nothing displayed constitutes an offer to sell."],
-  ["Fictional content", "All films, people, venues, showtimes, prices, events and reviews are fictional sample content."],
-  ["Bank details", "Any bank details shown are fictional placeholders. Do not send money to them."],
-  ["Changes", "These placeholder terms will be replaced by reviewed legal text before any production release."],
+const defaults: [string, string][] = [
+  ["Booking and seat holds", "When you reserve seats we hold them for a limited time while you pay by bank transfer. If we do not receive your payment proof in time, the seats are released automatically."],
+  ["Payment", "Payment is by bank transfer to the account shown on your booking page. A booking is only confirmed, and tickets are only issued, after our staff have verified your transfer. Always include your booking reference in the transfer memo."],
+  ["Tickets", "Each seat has its own ticket with a QR code. A ticket admits one person once. Keep your QR code private: anyone who presents it first can be admitted."],
+  ["Refunds", "You can request a refund of a confirmed booking until shortly before the show, as long as no ticket has been used. Refunds are paid back by bank transfer once approved."],
+  ["Changes to showings", "If a showing is cancelled we will contact you and refund your payment."],
+  ["Conduct", "Please follow the cinema's house rules and age classifications. We may refuse entry where required."],
 ];
 
 export default function TermsPage() {
-  return (
-    <>
-      <PageHero title="Terms & Conditions" eyebrow="Legal" />
-      <section className="container-page max-w-3xl py-12">
-        <DemoNotice>Placeholder copy. Replace with reviewed terms before any production use.</DemoNotice>
-        <div className="mt-8 space-y-8">
-          {sections.map(([h, p]) => (
-            <div key={h}>
-              <h2 className="display text-2xl">{h}</h2>
-              <p className="mt-2 text-muted">{p}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-    </>
-  );
+  return <LegalPage pageKey="terms" title="Terms & Conditions" defaults={defaults} />;
 }

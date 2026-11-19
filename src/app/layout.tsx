@@ -3,9 +3,11 @@ import { Barlow_Condensed, Manrope } from "next/font/google";
 import "./globals.css";
 import { siteConfig } from "@/config/site";
 import { ThemeProvider } from "@/providers/theme-provider";
+import { AuthProvider } from "@/providers/auth-provider";
 import { ThemeScript } from "@/providers/theme-script";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
+import { ConditionalFooter } from "@/components/layout/conditional-footer";
 
 const display = Barlow_Condensed({
   variable: "--font-display",
@@ -50,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="flex min-h-full flex-col">
         <ThemeProvider>
+          <AuthProvider>
           <a
             href="#main"
             className="sr-only z-[200] rounded bg-accent px-4 py-2 font-semibold text-on-accent focus:not-sr-only focus:fixed focus:left-4 focus:top-4"
@@ -60,7 +63,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main id="main" className="flex-1">
             {children}
           </main>
-          <Footer />
+          <ConditionalFooter>
+            <Footer />
+          </ConditionalFooter>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
