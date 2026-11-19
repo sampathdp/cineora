@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/content/legal-page";
 
-export const metadata: Metadata = { title: "Terms & Conditions", description: "The terms for booking tickets with Cineora." };
+export const metadata: Metadata = { title: "Terms & Conditions", description: "The terms for booking tickets with AR Entertainment." };
 
 const defaults: [string, string][] = [
   ["Booking and seat holds", "When you reserve seats we hold them for a limited time while you pay by bank transfer. If we do not receive your payment proof in time, the seats are released automatically."],

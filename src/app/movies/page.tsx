@@ -6,7 +6,7 @@ import { MoviesGridLoading, MoviesPageContent } from "@/components/movies/movies
 export const metadata: Metadata = {
   title: "Movies",
   description: "Browse now playing and upcoming movies. Filter by genre, search and sort.",
-  openGraph: { title: "Movies | CINEORA" },
+  openGraph: { title: "Movies | AR ENTERTAINMENT" },
 };
 
 export default function MoviesPage() {

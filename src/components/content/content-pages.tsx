@@ -73,7 +73,7 @@ export function EventDetail() {
   const when = e.starts_at ? zonedParts(e.starts_at, e.cinema?.timezone ?? "Asia/Seoul") : null;
   return (
     <article className="container-page max-w-3xl pb-20 pt-28 sm:pt-32">
-      <title>{`${e.title} | CINEORA`}</title>
+      <title>{`${e.title} | AR ENTERTAINMENT`}</title>
       <meta name="description" content={e.seo_description ?? e.summary} />
       <BackLink href="/events">All events</BackLink>
       <h1 className="display mt-2 text-4xl sm:text-6xl">{e.title}</h1>
@@ -102,7 +102,7 @@ export function ArticleDetail() {
 
   return (
     <article className="container-page max-w-3xl pb-20 pt-28 sm:pt-32">
-      <title>{`${a.title} | CINEORA`}</title>
+      <title>{`${a.title} | AR ENTERTAINMENT`}</title>
       <meta name="description" content={a.seo_description ?? a.excerpt} />
       <BackLink href="/news">All news</BackLink>
       {a.category ? <p className="eyebrow mt-2">{a.category.name}</p> : null}

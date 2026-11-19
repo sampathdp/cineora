@@ -8,8 +8,8 @@ import { siteConfig } from "@/config/site";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "The story behind CINEORA.",
-  openGraph: { title: "About | CINEORA" },
+  description: "The story behind AR Entertainment.",
+  openGraph: { title: "About | AR ENTERTAINMENT" },
 };
 
 const features = [

@@ -58,7 +58,7 @@ export function Intro() {
             The best movie ticket distributor
           </h2>
           <p className="mt-5 max-w-xl text-pretty text-muted">
-            Cineora brings the screens together in one place: discover films, compare showtimes and choose your perfect seat.
+            AR Entertainment brings the screens together in one place: discover films, compare showtimes and choose your perfect seat.
           </p>
           <ul className="mt-8 grid gap-5 sm:grid-cols-3">
             {highlights.map(({ icon: Icon, title, text }) => (

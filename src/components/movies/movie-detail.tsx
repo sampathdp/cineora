@@ -31,7 +31,7 @@ export function MovieDetail() {
 
   return (
     <>
-      <title>{`${movie.title} | CINEORA`}</title>
+      <title>{`${movie.title} | AR ENTERTAINMENT`}</title>
       <meta name="description" content={movie.synopsis} />
       <section className="on-dark relative isolate overflow-hidden bg-black pt-28 pb-12 sm:pt-36 sm:pb-16">
         <div className="absolute inset-0 -z-10 opacity-70">

@@ -200,7 +200,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <Film className="size-5" />
             </div>
             <div>
-              <span className="display text-lg font-bold tracking-wider">CINEORA</span>
+              <span className="display text-lg font-bold tracking-wider">AR ENTERTAINMENT</span>
               <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent">Operations</span>
             </div>
           </Link>
@@ -307,7 +307,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </div>
             {!collapsed && (
               <div className="overflow-hidden">
-                <span className="display text-lg font-bold tracking-wider leading-none">CINEORA</span>
+                <span className="display text-lg font-bold tracking-wider leading-none">AR ENTERTAINMENT</span>
                 <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent leading-tight">
                   Operations HQ
                 </span>

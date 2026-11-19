@@ -1,4 +1,4 @@
-# Project Audit — Cineora
+# Project Audit — AR Entertainment
 
 Phase 1 deliverable. Based on inspection of the repository at commit `fda4b8e` (branch `master`). Nothing in this document has been implemented yet; "required" items are plans.
 

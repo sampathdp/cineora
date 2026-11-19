@@ -254,7 +254,7 @@ export function AdminCommandPalette({
               <kbd className="rounded border border-line bg-background px-1.5 py-0.5 font-mono">↵</kbd> select
             </span>
           </div>
-          <span>Cineora Ops Command Center</span>
+          <span>AR Entertainment Ops Command Center</span>
         </div>
       </div>
     </div>

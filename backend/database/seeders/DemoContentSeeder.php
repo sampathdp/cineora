@@ -21,7 +21,7 @@ class DemoContentSeeder extends Seeder
         }
 
         foreach ([
-            'site.name' => 'CINEORA', 'site.tagline' => 'Cinema, booked beautifully.',
+            'site.name' => 'AR ENTERTAINMENT', 'site.tagline' => 'Cinema, booked beautifully.',
             'site.description' => 'Book cinema tickets online: pick your film, choose your seats and pay by bank transfer.',
             'contact.email' => 'hello@cineora.test', 'contact.phone' => '+82 2 000 0000', 'contact.address' => '100 Sample-ro, Seoul', 'contact.hours' => 'Daily 10:00 to 23:00',
         ] as $key => $value) {
@@ -43,7 +43,7 @@ class DemoContentSeeder extends Seeder
 
         $category = ArticleCategory::firstOrCreate(['slug' => 'announcements'], ['name' => 'Announcements']);
         if (Article::count() === 0) {
-            $article = new Article(['title' => 'Welcome to the new Cineora website', 'excerpt' => 'Book seats online and pay by bank transfer.', 'body' => "You can now pick your seats and book online.\n\nAfter you reserve, transfer the amount to our bank account and upload your receipt. Once our team verifies it, your QR tickets appear in your account.", 'category_id' => $category->id]);
+            $article = new Article(['title' => 'Welcome to the new AR Entertainment website', 'excerpt' => 'Book seats online and pay by bank transfer.', 'body' => "You can now pick your seats and book online.\n\nAfter you reserve, transfer the amount to our bank account and upload your receipt. Once our team verifies it, your QR tickets appear in your account.", 'category_id' => $category->id]);
             $article->slug = 'welcome-to-the-new-cineora-website';
             $article->status = ContentStatus::Published;
             $article->published_at = now();

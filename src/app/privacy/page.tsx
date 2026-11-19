@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/content/legal-page";
 
-export const metadata: Metadata = { title: "Privacy Policy", description: "How Cineora handles your personal data." };
+export const metadata: Metadata = { title: "Privacy Policy", description: "How AR Entertainment handles your personal data." };
 
 const defaults: [string, string][] = [
   ["What we collect", "When you create an account we store your name, email address, optional phone number and a securely hashed password. When you book we store the booking, the seats, the amount, and the bank-transfer receipt you upload. If you write to us or subscribe to the newsletter we store what you send."],

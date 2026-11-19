@@ -27,7 +27,7 @@ export default function Page() {
           </Link>
           <div className="inline-flex items-center gap-1.5 rounded-full border border-line/80 bg-surface/80 px-3 py-1 text-xs font-semibold text-muted mb-2">
             <ShieldCheck className="size-3.5 text-accent" />
-            <span>CINEORA OPERATIONS CONSOLE</span>
+            <span>AR ENTERTAINMENT OPERATIONS CONSOLE</span>
           </div>
           <p className="text-xs text-muted">Authorised staff & cinema management portal</p>
         </div>

@@ -6,7 +6,7 @@ import { ContactDetails } from "@/components/layout/contact-details";
 export const metadata: Metadata = {
   title: "Contact",
   description: "Get in touch with the team.",
-  openGraph: { title: "Contact | CINEORA" },
+  openGraph: { title: "Contact | AR ENTERTAINMENT" },
 };
 
 export default function ContactPage() {

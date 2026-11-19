@@ -1,6 +1,6 @@
 /** Single place to rebrand the demo site. */
 export const siteConfig = {
-  name: "CINEORA",
+  name: "AR ENTERTAINMENT",
   tagline: "Cinema, booked beautifully.",
   description:
     "Book cinema tickets online: pick your film, choose your seats and pay by bank transfer.",
@@ -19,7 +19,7 @@ export const siteConfig = {
   /** Unmistakably fictional demo bank details. */
   demoBank: {
     bankName: "Demo Bank (Fictional)",
-    accountName: "Cineora Demo Account",
+    accountName: "AR Entertainment Demo Account",
     accountNumber: "0000 0000 0000",
     branch: "Sample Branch 000",
     swift: "DEMOXXXX",

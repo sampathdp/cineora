@@ -45,7 +45,7 @@ export function LoginForm() {
       subtitle="Access your bookings and tickets."
       footer={
         <>
-          New to Cineora?{" "}
+          New to AR Entertainment?{" "}
           <Link href="/register" className="font-semibold text-accent-text hover:underline">
             Create an account
           </Link>
