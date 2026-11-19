@@ -174,8 +174,9 @@ try {
         echo "- $line\n";
     }
     echo "OK: release installed\n";
-    if (!is_file("$root/backend/.env")) {
-        echo "WARNING: backend/.env is missing - the API will not work until it is created on the server.\n";
+    // bootstrap/app.php prefers /home/<user>/envs/arentertainmentkr.env, then backend/.env.
+    if (!is_file(dirname($root) . '/envs/arentertainmentkr.env') && !is_file("$root/backend/.env")) {
+        echo "WARNING: no env file found (envs/arentertainmentkr.env or backend/.env) - the API will not work until it is created.\n";
     }
 } catch (Throwable $e) {
     $status = 500;

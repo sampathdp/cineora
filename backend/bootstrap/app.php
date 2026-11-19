@@ -15,7 +15,7 @@ use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-return Application::configure(basePath: dirname(__DIR__))
+$app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
@@ -81,3 +81,13 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
     })->create();
+
+// Production (cPanel): the real .env lives outside the web root, in /home/<user>/envs/arentertainmentkr.env,
+// next to the other sites' env files. Locally and in CI that file does not exist, so backend/.env is used.
+// Layout: /home/<user>/arentertainmentkr.com/backend -> /home/<user>/envs
+$sharedEnvDir = dirname(__DIR__, 3).DIRECTORY_SEPARATOR.'envs';
+if (is_file($sharedEnvDir.DIRECTORY_SEPARATOR.'arentertainmentkr.env')) {
+    $app->useEnvironmentPath($sharedEnvDir)->loadEnvironmentFrom('arentertainmentkr.env');
+}
+
+return $app;
