@@ -8,6 +8,7 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
+      - ".github/deploy/**"
   workflow_dispatch:
 
 # Never let two deploys upload over each other.
@@ -73,6 +74,10 @@ jobs:
               RewriteCond %{HTTP:x-xsrf-token} .
               RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
 
+              # One-shot release installer; only exists for a few seconds during a deploy
+              # and answers 404 to anything without the deploy token.
+              RewriteRule ^_deploy\.php$ - [END]
+
               # Block dotfiles (.env, .git*, ...).
               RewriteRule (^|/)\. - [F,L]
 
@@ -96,19 +101,42 @@ jobs:
           </FilesMatch>
           EOF
 
-      - name: 📂 Sync files to FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          port: 21
-          local-dir: ./dist/
-          # server-dir: /public_html/api/
-          # The action only deletes files it uploaded itself, so uploads, logs and
-          # sessions created on the server are never removed.
-          exclude: |
-            **/.git*
-            **/.git*/**
-            .env
+      # Uploading ~9k files one by one over FTPS takes ~1h and the host drops the
+      # connection. Instead: upload one zip + a one-shot installer, then trigger it.
+      - name: 🗜️ Build release archive
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          test -n "$DEPLOY_TOKEN" || { echo "DEPLOY_TOKEN secret is not set"; exit 1; }
+          rm -f dist/.env
+          (cd dist && zip -qr -9 ../release.zip . -x '.git*' '*/.gitignore')
+          ls -lh release.zip
+          hash=$(printf '%s' "$DEPLOY_TOKEN" | sha256sum | cut -d' ' -f1)
+          sed "s/__TOKEN_SHA256__/$hash/" .github/deploy/_deploy.php > _deploy.php
+
+      - name: 📤 Upload release over FTPS
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          # Path relative to the FTP login folder, with trailing slash (e.g. "public_html/api/").
+          SERVER_DIR: ""
+        run: |
+          up() {
+            curl --ssl-reqd --ftp-create-dirs --retry 3 --retry-all-errors -sS \
+              --user "$FTP_USERNAME:$FTP_PASSWORD" \
+              -T "$1" "ftp://$FTP_SERVER:21/$SERVER_DIR$2"
+          }
+          # .htaccess first so the installer is reachable (the catch-all would route it to Laravel).
+          up dist/.htaccess .htaccess
+          up release.zip release.zip
+          up _deploy.php _deploy.php
+
+      - name: 🚀 Install release on server
+        env:
+          DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          curl -fsS --max-time 600 -X POST \
+            -H "X-Deploy-Token: $DEPLOY_TOKEN" \
+            "${DEPLOY_URL%/}/_deploy.php"
