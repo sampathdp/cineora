@@ -51,6 +51,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
   const current = useLoad(
     () => adm.get<{ seats: { row_label: string; number: number; category_key: string; is_active: boolean; x: number | null }[] }>(`/rooms/${room.id}/seats`).then((r) => r.data.seats),
     `layout-${room.id}`,
+    { cache: false },
   );
   const [rows, setRows] = useState<RowSpec[] | null>(null);
 
@@ -79,7 +80,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
 
   // Synchronise existing seat overrides from backend when room data loads
   useEffect(() => {
-    if (current.data && syncedRoomId !== room.id) {
+    if (current.data && !current.refreshing && syncedRoomId !== room.id) {
       const overrides: Record<string, string> = {};
       const rowTiers: Record<string, Record<string, number>> = {};
 

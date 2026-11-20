@@ -27,7 +27,8 @@ return [
 
     'exposed_headers' => ['X-Request-Id'],
 
-    'max_age' => 0,
+    // Let browsers reuse a preflight for 2 hours instead of sending OPTIONS before every save (dev: :3000 -> :8000).
+    'max_age' => 7200,
 
     'supports_credentials' => true,
 

@@ -2,27 +2,44 @@
 
 import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
-import { ApiError } from "@/lib/api/client";
+import { ApiError, AUTH_EXPIRED_EVENT } from "@/lib/api/client";
+import { loadCache } from "@/lib/load-cache";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { FormMessage } from "@/components/auth/form-kit";
 import { useDialogBehavior, useScrollLock } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
-/** Loads data for a page section. `reload()` refetches; `loading` is true until the first answer for the current key. */
-export function useLoad<T>(load: (signal: AbortSignal) => Promise<T>, key: string) {
-  const [state, setState] = useState<{ key: string; data?: T; error?: string } | null>(null);
+if (typeof window !== "undefined") window.addEventListener(AUTH_EXPIRED_EVENT, () => loadCache.clear());
+
+/**
+ * Loads data for a page section (stale-while-revalidate).
+ *
+ * - `loading` is true only while there is nothing to show yet. A `reload()` (e.g. after a save) keeps the current
+ *   data on screen and swaps it when the fresh answer arrives; `refreshing` tells you a request is in flight.
+ * - Answers are cached per key for the tab, so revisiting a page or filter renders instantly, then refreshes.
+ *   Pass `{ cache: false }` where the data seeds an edit form, so a form never starts from an older copy.
+ * - `set(data)` replaces the data without a request, for mutations whose response already holds the new record.
+ */
+export function useLoad<T>(load: (signal: AbortSignal) => Promise<T>, key: string, opts: { cache?: boolean } = {}) {
+  const useCache = opts.cache !== false;
+  const [state, setState] = useState<{ key: string; base: string; data?: T; error?: string } | null>(null);
   const [nonce, setNonce] = useState(0);
   const full = `${key}#${nonce}`;
 
   useEffect(() => {
     const controller = new AbortController();
     load(controller.signal)
-      .then((data) => setState({ key: full, data }))
+      .then((data) => {
+        if (controller.signal.aborted) return;
+        if (useCache) loadCache.set(key, data);
+        setState({ key: full, base: key, data });
+      })
       .catch((e: unknown) => {
         if (!controller.signal.aborted) {
           setState({
             key: full,
+            base: key,
             error: e instanceof ApiError && e.status === 403 ? "You do not have access to this." : "Could not load. Please try again.",
           });
         }
@@ -33,7 +50,22 @@ export function useLoad<T>(load: (signal: AbortSignal) => Promise<T>, key: strin
   }, [full]);
 
   const current = state?.key === full ? state : null;
-  return { data: current?.data, error: current?.error, loading: current === null, reload: () => setNonce((n) => n + 1) };
+  // While a request for this key is in flight, keep showing what we already have: the previous answer for the
+  // same key (reload), else the cached copy from an earlier visit.
+  const stale = current ? undefined : state?.base === key && state.data !== undefined ? state.data : useCache ? loadCache.get<T>(key) : undefined;
+  const data = current ? current.data : stale;
+
+  return {
+    data,
+    error: current?.error,
+    loading: current === null && data === undefined,
+    refreshing: current === null,
+    reload: () => setNonce((n) => n + 1),
+    set: (next: T) => {
+      if (useCache) loadCache.set(key, next);
+      setState({ key: full, base: key, data: next });
+    },
+  };
 }
 
 export function PageTitle({

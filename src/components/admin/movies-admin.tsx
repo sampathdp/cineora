@@ -301,6 +301,7 @@ export function MovieEditorPage() {
   const movie = useLoad(
     (signal) => (id ? adm.get<Movie>(`/movies/${encodeURIComponent(id)}`, undefined, signal).then((r) => r.data) : Promise.resolve(null)),
     `movie-${id ?? "new"}`,
+    { cache: false },
   );
   const genres = useLoad(
     () => apiGet<{ slug: string; name: string }[]>("/genres").then((r) => r.data),
@@ -323,8 +324,10 @@ export function MovieEditorPage() {
       movie={current}
       allGenres={genres.data ?? []}
       onClose={() => router.push("/admin/movies/")}
-      onSaved={(savedId) => {
+      onSaved={(savedId, saved) => {
         if (savedId && savedId !== id) router.replace(routes.editMovie(savedId));
+        // Save responses already carry the full updated movie: show it instead of fetching it again.
+        else if (saved) movie.set(saved);
         else movie.reload();
       }}
     />
@@ -360,7 +363,7 @@ function MovieEditor({
   movie: Movie | null;
   allGenres: { slug: string; name: string }[];
   onClose: () => void;
-  onSaved: (id?: string) => void;
+  onSaved: (id?: string, saved?: Movie) => void;
   asPage?: boolean;
 }) {
   const { can } = useAuth();
@@ -419,7 +422,7 @@ function MovieEditor({
     };
     if (movie) {
       const r = await act.run(() => adm.patch<Movie>(`/movies/${movie.id}`, body), "Saved.");
-      if (r) onSaved(r.data.id);
+      if (r) onSaved(r.data.id, r.data);
       return;
     }
 
@@ -428,10 +431,14 @@ function MovieEditor({
     const r = await act.run(async () => {
       const created = await adm.post<Movie>("/movies", body);
       createdId = created.data.id;
-      for (const kind of ["poster", "banner"] as const) {
-        const picked = files[kind];
-        if (picked) await adm.upload(`/movies/${createdId}/images/${kind}`, picked.file);
-      }
+      // Poster and banner are independent uploads: send them together instead of one after the other.
+      const id = createdId;
+      await Promise.all(
+        (["poster", "banner"] as const).flatMap((kind) => {
+          const picked = files[kind];
+          return picked ? [adm.upload(`/movies/${id}/images/${kind}`, picked.file)] : [];
+        }),
+      );
       if (publish) await adm.post(`/movies/${createdId}/publish`);
       return created;
     }, publish ? "Published." : "Saved as draft.");
@@ -446,15 +453,16 @@ function MovieEditor({
   const transition = (what: "publish" | "unpublish" | "archive", ok: string) => async () => {
     if (!movie) return;
     if ((what === "archive" || what === "unpublish") && !window.confirm(`Really ${what} this movie?`)) return;
-    if (await act.run(() => adm.post(`/movies/${movie.id}/${what}`), ok)) onSaved();
+    const r = await act.run(() => adm.post<Movie>(`/movies/${movie.id}/${what}`), ok);
+    if (r) onSaved(r.data.id, r.data);
   };
 
   const upload = (kind: "poster" | "banner") => async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (movie && file && (await act.run(() => adm.upload(`/movies/${movie.id}/images/${kind}`, file), `${kind} updated.`))) {
-      onSaved();
-    }
+    if (!movie || !file) return;
+    const r = await act.run(() => adm.upload<Movie>(`/movies/${movie.id}/images/${kind}`, file), `${kind} updated.`);
+    if (r) onSaved(r.data.id, r.data);
   };
 
   const Shell = asPage ? PageShell : ModalShell;

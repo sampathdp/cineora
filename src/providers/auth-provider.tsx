@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AUTH_EXPIRED_EVENT, ApiError } from "@/lib/api/client";
 import { authApi, type AuthUser, type LoginResult } from "@/lib/api/auth";
+import { loadCache } from "@/lib/load-cache";
 
 type Status = "loading" | "authenticated" | "anonymous";
 
@@ -52,12 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const result = await authApi.login(email, password);
+    loadCache.clear();
     setState({ status: "authenticated", user: result.user });
     return result;
   }, []);
 
   const staffLogin = useCallback(async (email: string, password: string) => {
     const result = await authApi.staffLogin(email, password);
+    loadCache.clear();
     setState({ status: "authenticated", user: result.user });
     return result;
   }, []);
@@ -66,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } finally {
+      loadCache.clear();
       setState({ status: "anonymous", user: null });
     }
   }, []);

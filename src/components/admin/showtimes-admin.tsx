@@ -346,10 +346,17 @@ function CreateShowtime({
     }));
 
     const r = await act.run(async () => {
-      const created: string[] = [];
-      const skipped: string[] = [];
-      for (const day of dates) {
-        for (const time of times) {
+      const slots = dates.flatMap((day) => times.map((time) => ({ day, time })));
+      const created: (string | undefined)[] = new Array(slots.length);
+      const skipped: (string | undefined)[] = new Array(slots.length);
+      // A few requests in flight instead of one after the other. Safe: the API locks the room for every create,
+      // so overlap checks stay exact. A fatal error stops the remaining workers from starting new requests.
+      let next = 0;
+      let fatal: unknown = null;
+      const worker = async () => {
+        while (fatal === null && next < slots.length) {
+          const i = next++;
+          const { day, time } = slots[i];
           try {
             const res = await adm.post<Showtime>("/showtimes", {
               movie: movieId,
@@ -358,15 +365,22 @@ function CreateShowtime({
               sales_cutoff_minutes: Number(cutoff),
               prices,
             });
-            created.push(res.data.id);
+            created[i] = res.data.id;
           } catch (err) {
-            if (!(err instanceof ApiError) || err.status === 403 || err.status === 429 || total === 1) throw err;
-            skipped.push(`${day} ${time} (${err.message})`);
+            if (!(err instanceof ApiError) || err.status === 403 || err.status === 429 || total === 1) {
+              fatal ??= err;
+              return;
+            }
+            const reason = Object.values(err.errors).flat()[0] ?? err.message;
+            skipped[i] = `${day} ${time} (${reason})`;
           }
         }
-      }
-      if (created.length === 0) throw new Error("none created");
-      return { created, skipped };
+      };
+      await Promise.all(Array.from({ length: Math.min(4, slots.length) }, worker));
+      if (fatal !== null) throw fatal;
+      const ok = created.filter((x): x is string => !!x);
+      if (ok.length === 0) throw new Error("none created");
+      return { created: ok, skipped: skipped.filter((x): x is string => !!x) };
     }, undefined);
 
     if (r) {

@@ -252,6 +252,7 @@ export function CinemaEditorPage() {
     (signal) =>
       id ? adm.get<Cinema>(`/cinemas/${encodeURIComponent(id)}`, undefined, signal).then((r) => r.data) : Promise.resolve(null),
     `cinema-${id ?? "new"}`,
+    { cache: false },
   );
 
   // Keep showing the last loaded copy while a reload after save is in flight, so the form does not flash away.
@@ -268,8 +269,10 @@ export function CinemaEditorPage() {
       key={id ?? "new"}
       cinema={current}
       onClose={() => router.push("/admin/cinemas/")}
-      onSaved={(savedId) => {
+      onSaved={(savedId, saved) => {
         if (savedId && savedId !== id) router.replace(routes.editCinema(savedId));
+        // The save response already carries the full updated cinema: show it instead of fetching it again.
+        else if (saved) cinema.set(saved);
         else cinema.reload();
       }}
     />
@@ -302,7 +305,7 @@ function CinemaEditor({
 }: {
   cinema: Cinema | null;
   onClose: () => void;
-  onSaved: (id?: string) => void;
+  onSaved: (id?: string, saved?: Cinema) => void;
 }) {
   const { can } = useAuth();
   const act = useAction();
@@ -337,7 +340,7 @@ function CinemaEditor({
       () => (cinema ? adm.patch<Cinema>(`/cinemas/${cinema.id}`, body) : adm.post<Cinema>("/cinemas", body)),
       "Saved.",
     );
-    if (r) onSaved(r.data.id);
+    if (r) onSaved(r.data.id, r.data);
   }
 
   return (

@@ -30,7 +30,7 @@ const PAGES: [string, string][] = [
 ];
 
 export function SettingsAdmin() {
-  const data = useLoad(() => adm.get<SettingsData>("/settings").then((r) => r.data), "settings");
+  const data = useLoad(() => adm.get<SettingsData>("/settings").then((r) => r.data), "settings", { cache: false });
 
   return (
     <section className="space-y-6">
