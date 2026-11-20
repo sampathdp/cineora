@@ -108,7 +108,6 @@ export function MoviesExplorer({ initialMovies, genres }: { initialMovies: Movie
               className="h-11 rounded-control border border-line bg-elevated px-3 text-sm outline-none focus:border-accent"
             >
               <option value="popular">Newest</option>
-              <option value="rating">Top rated</option>
               <option value="title">Title A–Z</option>
               <option value="duration">Shortest first</option>
             </select>

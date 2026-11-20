@@ -6,6 +6,7 @@ import { useEffect, useRef } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Search, Ticket, X } from "lucide-react";
 import { siteConfig } from "@/config/site";
+import { BrandImage } from "./logo";
 import { cn } from "@/lib/utils";
 import { buttonClass } from "@/components/ui/button";
 import { useDialogBehavior, useScrollLock } from "@/components/ui/modal";
@@ -66,7 +67,7 @@ export function MobileNav({
             className="absolute right-0 top-0 flex h-full w-[min(22rem,100%)] flex-col overflow-y-auto border-l border-line bg-background p-5 text-foreground shadow-2xl outline-none"
           >
             <div className="flex items-center justify-between">
-              <span className="display text-2xl tracking-[0.12em]">{siteConfig.name}</span>
+              <BrandImage className="h-10" />
               <button
                 type="button"
                 onClick={onClose}

@@ -161,14 +161,6 @@ export function MoviesAdmin() {
                           </span>
                         </>
                       )}
-                      {m.rating !== null && (
-                        <>
-                          <span>·</span>
-                          <span className="font-semibold text-accent flex items-center gap-0.5">
-                            ★ {m.rating}
-                          </span>
-                        </>
-                      )}
                     </div>
                   </div>
                 ),
@@ -380,7 +372,6 @@ function MovieEditor({
     duration_min: String(movie?.duration_min ?? 110),
     release_date: movie?.release_date ?? "",
     age_rating: movie?.age_rating ?? "",
-    rating: movie?.rating !== null && movie?.rating !== undefined ? String(movie.rating) : "",
     screening_status: movie?.screening_status ?? "coming_soon",
     is_featured: movie?.is_featured ?? false,
     trailer_url: movie?.trailer_url ?? "",
@@ -392,13 +383,29 @@ function MovieEditor({
   const [crew, setCrew] = useState(movie?.crew ?? []);
   const set = (k: keyof typeof f, v: string | boolean) => setF((x) => ({ ...x, [k]: v }));
   const canEdit = can("movies.manage");
+  // New movies: artwork is picked up front and uploaded right after the movie is created.
+  const [files, setFiles] = useState<{ poster?: { file: File; url: string }; banner?: { file: File; url: string } }>({});
+  const [checkError, setCheckError] = useState<string | null>(null);
+  const pick = (kind: "poster" | "banner") => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setFiles((x) => {
+      if (x[kind]) URL.revokeObjectURL(x[kind].url);
+      return { ...x, [kind]: { file, url: URL.createObjectURL(file) } };
+    });
+  };
 
-  async function save(e: React.FormEvent) {
+  async function save(e: React.FormEvent | React.MouseEvent, publish = false) {
     e.preventDefault();
+    setCheckError(null);
+    if (!movie && publish && (!files.poster || !f.description.trim())) {
+      setCheckError("To publish now, add a synopsis and a poster. Or save as a draft and finish later.");
+      return;
+    }
     const body = {
       ...f,
       duration_min: Number(f.duration_min),
-      rating: f.rating === "" ? null : Number(f.rating),
       release_date: f.release_date || null,
       tagline: f.tagline || null,
       description: f.description || null,
@@ -410,11 +417,30 @@ function MovieEditor({
       cast: cast.filter((c) => c.name.trim()),
       crew: crew.filter((c) => c.name.trim() && c.job.trim()),
     };
-    const r = await act.run(
-      () => (movie ? adm.patch<Movie>(`/movies/${movie.id}`, body) : adm.post<Movie>("/movies", body)),
-      "Saved.",
-    );
+    if (movie) {
+      const r = await act.run(() => adm.patch<Movie>(`/movies/${movie.id}`, body), "Saved.");
+      if (r) onSaved(r.data.id);
+      return;
+    }
+
+    // Create, upload artwork and (optionally) publish in one go.
+    let createdId: string | undefined;
+    const r = await act.run(async () => {
+      const created = await adm.post<Movie>("/movies", body);
+      createdId = created.data.id;
+      for (const kind of ["poster", "banner"] as const) {
+        const picked = files[kind];
+        if (picked) await adm.upload(`/movies/${createdId}/images/${kind}`, picked.file);
+      }
+      if (publish) await adm.post(`/movies/${createdId}/publish`);
+      return created;
+    }, publish ? "Published." : "Saved as draft.");
     if (r) onSaved(r.data.id);
+    else if (createdId) {
+      // The movie exists now; never leave the form open to create it a second time.
+      window.alert("The movie was saved as a draft, but uploading the artwork or publishing did not finish. Please check it on the next screen.");
+      onSaved(createdId);
+    }
   }
 
   const transition = (what: "publish" | "unpublish" | "archive", ok: string) => async () => {
@@ -488,15 +514,6 @@ function MovieEditor({
               value={f.age_rating}
               onChange={(e) => set("age_rating", e.target.value)}
               hint="e.g. 12, 15, 18, ALL"
-              disabled={!canEdit}
-            />
-            <TextField
-              id="m-rate"
-              label="Score (0 to 10)"
-              inputMode="decimal"
-              value={f.rating}
-              onChange={(e) => set("rating", e.target.value)}
-              error={act.fields.rating}
               disabled={!canEdit}
             />
             <SelectField
@@ -624,12 +641,29 @@ function MovieEditor({
           </div>
         </details>
 
+        {!movie && canEdit && (
+          <div className="space-y-3">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ImageSlot label="Poster Artwork (Portrait)" url={files.poster?.url ?? null} onPick={pick("poster")} />
+              <ImageSlot label="Banner Artwork (Landscape)" url={files.banner?.url ?? null} onPick={pick("banner")} />
+            </div>
+            <p className="text-[11px] text-muted">A synopsis and a poster are needed to publish. The banner is optional.</p>
+          </div>
+        )}
+
+        {checkError && <p className="text-sm text-rose-500">{checkError}</p>}
+
         {/* Form Action Controls */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 pt-4">
           <div className="flex items-center gap-2.5">
+            {!movie && canEdit && can("movies.publish") && (
+              <Button type="button" onClick={(e) => save(e, true)} disabled={act.busy} className="shadow-sm">
+                {act.busy ? "Working…" : "Publish Movie"}
+              </Button>
+            )}
             {canEdit && (
-              <Button type="submit" disabled={act.busy} className="shadow-sm">
-                {act.busy ? "Saving…" : movie ? "Save Changes" : "Create Draft"}
+              <Button type="submit" variant={movie || !can("movies.publish") ? "primary" : "secondary"} disabled={act.busy} className="shadow-sm">
+                {act.busy ? "Saving…" : movie ? "Save Changes" : "Save as Draft"}
               </Button>
             )}
             <Button type="button" variant="ghost" onClick={onClose} className="cursor-pointer">
@@ -696,11 +730,7 @@ function MovieEditor({
             Note: A title requires at least a verified poster artwork and synopsis before it can be published live.
           </p>
         </div>
-      ) : (
-        <p className="mt-4 text-xs text-muted">
-          Save the movie draft first to unlock high-resolution poster and banner image uploads.
-        </p>
-      )}
+      ) : null}
     </Shell>
   );
 }

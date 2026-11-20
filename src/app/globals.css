@@ -185,3 +185,10 @@
     opacity: 1;
   }
 }
+
+/* ---------- Brand logo: dark-ink artwork on light theme, light-ink artwork on dark theme / over images ---------- */
+.brand-on-dark { display: none; }
+.dark .brand-on-light,
+.on-dark .brand-on-light { display: none; }
+.dark .brand-on-dark,
+.on-dark .brand-on-dark { display: block; }

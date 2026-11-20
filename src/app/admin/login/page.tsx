@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { Film, KeyRound, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { KeyRound, Lock, ShieldCheck, Sparkles } from "lucide-react";
 import { StaffLogin } from "@/components/auth/staff-login";
+import { BrandImage } from "@/components/layout/logo";
 
 export const metadata: Metadata = {
   title: "Operations Console Sign In",
@@ -23,9 +24,7 @@ export default function Page() {
         {/* Brand Console Header */}
         <div className="mb-6 flex flex-col items-center text-center">
           <Link href="/" className="mb-4 flex items-center gap-2.5 group">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-accent to-accent-hover text-on-accent shadow-lg shadow-accent/25 transition-transform group-hover:scale-105">
-              <Film className="size-6" />
-            </div>
+            <BrandImage className="h-16 transition-transform group-hover:scale-105" />
           </Link>
           <div className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-bold text-accent mb-2 shadow-sm">
             <ShieldCheck className="size-3.5" />

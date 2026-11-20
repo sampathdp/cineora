@@ -12,7 +12,6 @@ import {
   ChevronRight,
   Clapperboard,
   ExternalLink,
-  Film,
   Globe,
   Landmark,
   LayoutDashboard,
@@ -35,6 +34,7 @@ import {
 import { useAuth } from "@/providers/auth-provider";
 import { useTheme } from "@/providers/theme-provider";
 import { cn } from "@/lib/utils";
+import { BrandImage } from "@/components/layout/logo";
 import { AdminCommandPalette } from "./command-palette";
 
 interface NavItem {
@@ -196,15 +196,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
       >
         <div className="flex h-16 items-center justify-between border-b border-line/60 px-5 bg-surface/50">
           <Link href="/admin" className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-hover text-on-accent shadow-md shadow-accent/20">
-              <Film className="size-5" />
-            </div>
-            <div>
-              <span className="display text-base font-bold tracking-wider leading-none">AR ENTERTAINMENT</span>
-              <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent leading-tight">
-                Operations HQ
-              </span>
-            </div>
+            <BrandImage className="h-9" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-accent leading-tight">Operations HQ</span>
           </Link>
           <button
             onClick={() => setMobileMenuOpen(false)}
@@ -310,14 +303,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
         {/* Brand Header */}
         <div className="flex h-16 items-center justify-between border-b border-line/60 px-4 bg-surface/50">
           <Link href="/admin" className={cn("flex items-center gap-2.5 group", collapsed && "justify-center w-full")}>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-hover text-on-accent shadow-md shadow-accent/25 transition-transform group-hover:scale-105">
-              <Film className="size-5" />
-            </div>
-            {!collapsed && (
+            {collapsed ? (
+              <BrandImage kind="mark" className="h-9 transition-transform group-hover:scale-105" />
+            ) : (
               <div className="overflow-hidden">
-                <span className="display text-base font-bold tracking-wider leading-none text-foreground">
-                  AR ENTERTAINMENT
-                </span>
+                <BrandImage className="h-8" />
                 <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent leading-tight mt-0.5">
                   Operations HQ
                 </span>
