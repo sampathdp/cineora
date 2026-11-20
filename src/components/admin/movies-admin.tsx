@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Clapperboard, Edit2, Film, Image as ImageIcon, Plus, Sparkles, Star, Trash2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Clapperboard, Edit2, Film, Image as ImageIcon, Plus, Sparkles, Star, Trash2 } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { apiGet } from "@/lib/api/client";
 import { useAuth } from "@/providers/auth-provider";
-import { Button } from "@/components/ui/button";
+import { Button, LinkButton } from "@/components/ui/button";
+import { routes } from "@/lib/routes";
 import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Pill, Section, SelectField, TextArea, TextField, useAction, useLoad, when } from "./kit";
 import { cn } from "@/lib/utils";
 
@@ -68,10 +71,10 @@ export function MoviesAdmin() {
         hint="Manage cinematic titles, poster artwork, synopsis, cast, crew, and screening distribution status."
         action={
           can("movies.manage") ? (
-            <Button onClick={() => open("new")} className="shadow-sm">
+            <LinkButton href={routes.newMovie} className="shadow-sm">
               <Plus className="size-4 mr-1.5" aria-hidden />
               <span>New movie</span>
-            </Button>
+            </LinkButton>
           ) : undefined
         }
       />
@@ -279,8 +282,8 @@ export function MoviesAdmin() {
 
       {editing ? (
         <MovieEditor
-          key={editing === "new" || editing === createdId ? "created" : editing}
-          movie={editing === "new" ? null : selected}
+          key={editing === createdId ? "created" : editing}
+          movie={selected}
           allGenres={genres.data ?? []}
           onClose={() => open(null)}
           onSaved={(id) => {
@@ -296,16 +299,77 @@ export function MoviesAdmin() {
   );
 }
 
+/**
+ * Full-page movie editor: /admin/movies/new/ to create, /admin/movies/edit/?id=… after the first save
+ * (artwork uploads need a saved movie).
+ */
+export function MovieEditorPage() {
+  const id = useSearchParams().get("id");
+  const router = useRouter();
+  const movie = useLoad(
+    (signal) => (id ? adm.get<Movie>(`/movies/${encodeURIComponent(id)}`, undefined, signal).then((r) => r.data) : Promise.resolve(null)),
+    `movie-${id ?? "new"}`,
+  );
+  const genres = useLoad(
+    () => apiGet<{ slug: string; name: string }[]>("/genres").then((r) => r.data),
+    "genres",
+  );
+
+  // Keep showing the last loaded copy while a reload after save is in flight, so the form does not flash away.
+  const [last, setLast] = useState<Movie | null>(null);
+  if (movie.data && movie.data !== last) setLast(movie.data);
+  const current = movie.data ?? (last?.id === id ? last : null);
+
+  if (id && !current) {
+    return <p className="py-16 text-center text-sm text-muted">{movie.error ?? "Loading movie…"}</p>;
+  }
+
+  return (
+    <MovieEditor
+      key={id ?? "new"}
+      asPage
+      movie={current}
+      allGenres={genres.data ?? []}
+      onClose={() => router.push("/admin/movies/")}
+      onSaved={(savedId) => {
+        if (savedId && savedId !== id) router.replace(routes.editMovie(savedId));
+        else movie.reload();
+      }}
+    />
+  );
+}
+
+function PageShell({ title, subtitle, children, onClose }: { title: string; subtitle?: string; children: ReactNode; onClose: () => void }) {
+  return (
+    <section className="space-y-6">
+      <Link
+        href="/admin/movies/"
+        onClick={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-accent-text"
+      >
+        <ArrowLeft className="size-4" aria-hidden /> Back to movies
+      </Link>
+      <PageTitle title={title} eyebrow="Movies & Catalog" icon={Clapperboard} hint={subtitle} />
+      <div className="rounded-2xl border border-line/80 bg-elevated p-5 sm:p-6">{children}</div>
+    </section>
+  );
+}
+
 function MovieEditor({
   movie,
   allGenres,
   onClose,
   onSaved,
+  asPage = false,
 }: {
   movie: Movie | null;
   allGenres: { slug: string; name: string }[];
   onClose: () => void;
   onSaved: (id?: string) => void;
+  asPage?: boolean;
 }) {
   const { can } = useAuth();
   const act = useAction();
@@ -367,13 +431,12 @@ function MovieEditor({
     }
   };
 
+  const Shell = asPage ? PageShell : ModalShell;
   return (
-    <AdminModal
-      open={true}
+    <Shell
       onClose={onClose}
       title={movie ? `Edit: ${movie.title}` : "New Movie Title"}
       subtitle="Catalog metadata, genres, cast, crew, artwork, and screening distribution"
-      size="xl"
     >
       <form onSubmit={save} noValidate className="space-y-6" aria-label="Movie form">
         <Feedback error={act.error} note={act.note} />
@@ -638,6 +701,14 @@ function MovieEditor({
           Save the movie draft first to unlock high-resolution poster and banner image uploads.
         </p>
       )}
+    </Shell>
+  );
+}
+
+function ModalShell({ title, subtitle, children, onClose }: { title: string; subtitle?: string; children: ReactNode; onClose: () => void }) {
+  return (
+    <AdminModal open onClose={onClose} title={title} subtitle={subtitle} size="xl">
+      {children}
     </AdminModal>
   );
 }

@@ -10,5 +10,7 @@ export const routes = {
   article: (slug: string) => withQuery("/news/view/", "slug", slug),
   seats: (showtimeId: string) => withQuery("/booking/seats/", "showtime", showtimeId),
   booking: (id: string) => withQuery("/account/bookings/view/", "id", id),
+  newMovie: "/admin/movies/new/",
+  editMovie: (id: string) => withQuery("/admin/movies/edit/", "id", id),
   roomSeats: (roomId: string) => withQuery("/admin/cinemas/rooms/seats/", "room", roomId),
 };
