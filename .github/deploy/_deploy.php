@@ -32,6 +32,43 @@ const OLD_ROOT_LARAVEL = [
     '.ftp-deploy-sync-state.json',
 ];
 
+/**
+ * Builds Laravel's config, route and event caches for the new release, so the API does not re-read every
+ * config file and route definition on each request. bootstrap/ is replaced whole on deploy, so these files
+ * always belong to the code just installed. Runs in-process (shared hosting often disables exec()).
+ *
+ * The config cache bakes in the env file: after editing the server's env file, deploy again (or delete
+ * backend/bootstrap/cache/config.php) for the change to take effect.
+ *
+ * Never fails the deploy: if anything goes wrong the partial caches are removed and Laravel runs uncached.
+ */
+function warm_laravel_caches(string $root, array &$log): void
+{
+    $backend = "$root/backend";
+    $hasEnv = is_file(dirname($root) . '/envs/arentertainmentkr.env') || is_file("$backend/.env");
+    if (!$hasEnv || !is_file("$backend/vendor/autoload.php")) {
+        $log[] = 'skipped Laravel caches (no env file yet)';
+        return;
+    }
+    try {
+        require_once "$backend/vendor/autoload.php";
+        $app = require "$backend/bootstrap/app.php";
+        $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+        $kernel->bootstrap();
+        foreach (['config:cache', 'route:cache', 'event:cache'] as $command) {
+            if ($kernel->call($command) !== 0) {
+                throw new RuntimeException("$command failed: " . trim($kernel->output()));
+            }
+        }
+        $log[] = 'built Laravel config, route and event caches';
+    } catch (Throwable $e) {
+        foreach (glob("$backend/bootstrap/cache/{config,routes-v7,events}.php", GLOB_BRACE) ?: [] as $f) {
+            @unlink($f);
+        }
+        $log[] = 'WARNING: Laravel caches not built (' . $e->getMessage() . '); the API runs uncached';
+    }
+}
+
 header('Content-Type: text/plain; charset=utf-8');
 header('Cache-Control: no-store');
 
@@ -170,6 +207,7 @@ try {
     if (function_exists('opcache_reset')) {
         @opcache_reset();
     }
+    warm_laravel_caches($root, $log);
     foreach ($log as $line) {
         echo "- $line\n";
     }

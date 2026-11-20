@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "concurrently -k -n web,api -c cyan,magenta \"next dev\" \"npm run dev:api\"",
     "dev:web": "next dev",
-    "dev:api": "cd backend && php artisan serve --port=8000",
+    "dev:api": "node scripts/dev-api.mjs",
+    "dev:api:artisan": "cd backend && php artisan serve --port=8000",
     "build": "next build",
     "start": "node scripts/serve-static.mjs out",
     "lint": "eslint",

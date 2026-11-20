@@ -12,7 +12,7 @@ import NotFound from "@/app/not-found";
 /** /booking/seats/?showtime=… — always fetched fresh, never cached. */
 export function SeatPickerPage() {
   const id = useSearchParams().get("showtime");
-  const { data: showtime, error, loading } = useClientData(id ? `showtime:${id}` : null, (signal) => fetchShowtime(id!, signal));
+  const { data: showtime, error, loading } = useClientData(id ? `showtime:${id}` : null, (signal) => fetchShowtime(id!, signal), { cache: false });
   if (!id) return <NotFound />;
   if (loading) return <PageLoading label="Loading showtime" />;
   if (error)

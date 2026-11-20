@@ -26,6 +26,8 @@ interface MovieLite { id: string; title: string; duration_min: number }
 
 const MAX_DAYS = 60;
 const MAX_TIMES = 12;
+/** Slots per bulk request (the API accepts at most 100). */
+const BULK_SIZE = 100;
 const tone = { draft: "neutral", on_sale: "good", cancelled: "bad", completed: "warn" } as const;
 
 /** "2026-12-01T19:30" typed in a cinema's time zone -> an ISO string with that zone's real offset. */
@@ -346,41 +348,29 @@ function CreateShowtime({
     }));
 
     const r = await act.run(async () => {
-      const slots = dates.flatMap((day) => times.map((time) => ({ day, time })));
-      const created: (string | undefined)[] = new Array(slots.length);
-      const skipped: (string | undefined)[] = new Array(slots.length);
-      // A few requests in flight instead of one after the other. Safe: the API locks the room for every create,
-      // so overlap checks stay exact. A fatal error stops the remaining workers from starting new requests.
-      let next = 0;
-      let fatal: unknown = null;
-      const worker = async () => {
-        while (fatal === null && next < slots.length) {
-          const i = next++;
-          const { day, time } = slots[i];
-          try {
-            const res = await adm.post<Showtime>("/showtimes", {
-              movie: movieId,
-              room: effectiveRoom,
-              starts_at: zonedToIso(`${day}T${time}`, cinema.timezone),
-              sales_cutoff_minutes: Number(cutoff),
-              prices,
-            });
-            created[i] = res.data.id;
-          } catch (err) {
-            if (!(err instanceof ApiError) || err.status === 403 || err.status === 429 || total === 1) {
-              fatal ??= err;
-              return;
-            }
-            const reason = Object.values(err.errors).flat()[0] ?? err.message;
-            skipped[i] = `${day} ${time} (${reason})`;
-          }
-        }
-      };
-      await Promise.all(Array.from({ length: Math.min(4, slots.length) }, worker));
-      if (fatal !== null) throw fatal;
-      const ok = created.filter((x): x is string => !!x);
-      if (ok.length === 0) throw new Error("none created");
-      return { created: ok, skipped: skipped.filter((x): x is string => !!x) };
+      const base = { movie: movieId, room: effectiveRoom, sales_cutoff_minutes: Number(cutoff), prices };
+      const slots = dates.flatMap((day) => times.map((time) => ({ label: `${day} ${time}`, iso: zonedToIso(`${day}T${time}`, cinema.timezone) })));
+
+      // One slot: the plain endpoint, so validation errors land on the form fields.
+      if (slots.length === 1) {
+        const res = await adm.post<Showtime>("/showtimes", { ...base, starts_at: slots[0].iso });
+        return { created: [res.data.id], skipped: [] as string[] };
+      }
+
+      // A range: the bulk endpoint, BULK_SIZE slots per request (a 60-day x 12-time range is 8 requests, not 720).
+      const label = new Map(slots.map((x) => [x.iso, x.label]));
+      const created: string[] = [];
+      const skipped: string[] = [];
+      for (let i = 0; i < slots.length; i += BULK_SIZE) {
+        const res = await adm.post<{ created: string[]; skipped: { starts_at: string; reason: string }[] }>("/showtimes/bulk", {
+          ...base,
+          starts_at: slots.slice(i, i + BULK_SIZE).map((x) => x.iso),
+        });
+        created.push(...res.data.created);
+        skipped.push(...res.data.skipped.map((x) => `${label.get(x.starts_at) ?? x.starts_at} (${x.reason})`));
+      }
+      if (created.length === 0) throw new ApiError(`No showtimes were created. ${skipped.slice(0, 3).join("; ")}`, 422);
+      return { created, skipped };
     }, undefined);
 
     if (r) {

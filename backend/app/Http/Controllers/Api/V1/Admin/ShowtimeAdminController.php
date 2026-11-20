@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Exceptions\DomainConflictException;
+use App\Http\Requests\Admin\ShowtimeBulkRequest;
 use App\Http\Requests\Admin\ShowtimePricesRequest;
 use App\Http\Requests\Admin\ShowtimeRequest;
 use App\Http\Resources\AdminShowtimeResource;
@@ -16,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class ShowtimeAdminController extends Controller
 {
@@ -73,6 +76,37 @@ class ShowtimeAdminController extends Controller
         $showtime = $this->showtimes->create($this->internal($request->validated()), $request->user());
 
         return ApiResponse::success((new AdminShowtimeResource($showtime))->resolve(), 'Showtime created as a draft.', status: 201);
+    }
+
+    /**
+     * Creates up to 100 draft showtimes in one request. Each slot is created on its own (same checks and room lock
+     * as a single create), so one clashing slot is reported as skipped instead of failing the whole batch.
+     */
+    public function storeMany(ShowtimeBulkRequest $request): JsonResponse
+    {
+        $v = $request->validated();
+        $room = ScreeningRoom::where('public_id', $v['room'])->firstOrFail();
+        Gate::authorize('create', [Showtime::class, $room->cinema]);
+
+        $base = $this->internal(array_diff_key($v, ['starts_at' => true]));
+        $created = [];
+        $skipped = [];
+        foreach ($v['starts_at'] as $startsAt) {
+            try {
+                $created[] = $this->showtimes->create([...$base, 'starts_at' => $startsAt], $request->user())->public_id;
+            } catch (ValidationException $e) {
+                $skipped[] = ['starts_at' => $startsAt, 'reason' => collect($e->errors())->flatten()->first() ?? $e->getMessage()];
+            } catch (DomainConflictException $e) {
+                $skipped[] = ['starts_at' => $startsAt, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return ApiResponse::success(
+            ['created' => $created, 'skipped' => $skipped],
+            count($created).' draft showtime(s) created.',
+            // 200 when every slot was skipped: the caller reads `skipped` for the reasons.
+            status: $created === [] ? 200 : 201,
+        );
     }
 
     public function update(ShowtimeRequest $request, Showtime $showtime): JsonResponse
