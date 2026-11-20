@@ -11,8 +11,8 @@ export function BrandImage({ kind = "logo", className, onDark = false }: { kind?
   const size = kind === "logo" ? { width: 720, height: 273 } : { width: 160, height: 155 };
   return (
     <span className={cn("inline-block", onDark && "on-dark")}>
-      <img src={`/brand/${kind}-light.png`} alt={siteConfig.name} {...size} className={cn("brand-on-light w-auto", className)} />
-      <img src={`/brand/${kind}-dark.png`} alt="" aria-hidden {...size} className={cn("brand-on-dark w-auto", className)} />
+      <img src={`/brand/${kind}-light.webp`} alt={siteConfig.name} {...size} className={cn("brand-on-light w-auto", className)} />
+      <img src={`/brand/${kind}-dark.webp`} alt="" aria-hidden {...size} className={cn("brand-on-dark w-auto", className)} />
     </span>
   );
 }

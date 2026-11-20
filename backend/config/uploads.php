@@ -8,6 +8,7 @@ return [
         'max_dimension' => 5000,   // reject anything larger (decompression-bomb guard)
         'min_dimension' => 100,
         'output_max_side' => 2400, // downscale longer sides
+        'webp_quality' => 82,      // every image is stored as WebP (see SecureUploadService)
         'mimes' => ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'],
     ],
 

@@ -22,7 +22,7 @@ export function Intro() {
                   to: "#04141a",
                   accent: "#f7a35c",
                   motif: "mountains",
-                  image: "/images/about/intro-1.jpg",
+                  image: "/images/about/intro-1.webp",
                 }}
                 seed="intro-a"
                 label="Cinematic landscape"
@@ -35,7 +35,7 @@ export function Intro() {
                   to: "#07060a",
                   accent: "#f0782b",
                   motif: "moon",
-                  image: "/images/about/intro-2.jpg",
+                  image: "/images/about/intro-2.webp",
                 }}
                 seed="intro-b"
                 label="Classic cinema movie night"

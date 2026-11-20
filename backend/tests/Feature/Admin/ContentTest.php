@@ -93,7 +93,7 @@ class ContentTest extends AdminTestCase
 
         $this->post($url, ['image' => UploadedFile::fake()->image('a.jpg', 800, 500)], ['Accept' => 'application/json'])->assertOk();
         $first = Article::where('public_id', $id)->value('image_path');
-        $this->assertMatchesRegularExpression('#^articles/[0-9a-z]{26}\.jpg$#', $first);
+        $this->assertMatchesRegularExpression('#^articles/[0-9a-z]{26}\.webp$#', $first);
         $this->post($url, ['image' => UploadedFile::fake()->image('b.png', 800, 500)], ['Accept' => 'application/json'])->assertOk();
         Storage::disk('public')->assertMissing($first);
         $this->post("/api/v1/admin/content/pages/{$id}/image", [], ['Accept' => 'application/json'])->assertNotFound();

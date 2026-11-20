@@ -141,14 +141,18 @@ class SecureUploadService
             }
         }
 
-        $ext = $allowed[$mime];
+        // Every accepted image is stored as WebP (smaller, keeps PNG transparency). Falls back to the
+        // source format only if this PHP build's GD has no WebP encoder.
+        $ext = function_exists('imagewebp') ? 'webp' : $allowed[$mime];
+        if (! imageistruecolor($image)) {
+            imagepalettetotruecolor($image);
+        }
+        imagealphablending($image, false);
+        imagesavealpha($image, true);
         ob_start();
         match ($ext) {
-            'png' => (function () use ($image) {
-                imagesavealpha($image, true);
-                imagepng($image, null, 6);
-            })(),
-            'webp' => imagewebp($image, null, 85),
+            'webp' => imagewebp($image, null, (int) $cfg['webp_quality']),
+            'png' => imagepng($image, null, 6),
             default => imagejpeg($image, null, 88),
         };
         $bytes = (string) ob_get_clean();

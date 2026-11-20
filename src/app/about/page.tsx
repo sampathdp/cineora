@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { Mail, MessageCircle, Phone } from "lucide-react";
 import { LinkButton } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
 import { CityClock } from "@/components/about/city-clock";
+import { ContactChannels } from "@/components/contact/contact-channels";
 
 export const metadata: Metadata = {
   title: "About",
@@ -12,21 +12,11 @@ export const metadata: Metadata = {
   openGraph: { title: "About | AR ENTERTAINMENT" },
 };
 
-const PHONE = { label: "+82 10-4828-7461", href: "tel:+821048287461" };
-const WHATSAPP = {
-  label: "+82 10-4393-7461",
-  href: "https://wa.me/821043937461",
-};
-const EMAIL = {
-  label: "arentertainmentkr@gmail.com",
-  href: "mailto:arentertainmentkr@gmail.com",
-};
-
 const cities = [
   {
     name: "Colombo",
     line: "Where the films are made.",
-    image: "/images/about/colombo.jpg",
+    image: "/images/about/colombo.webp",
     alt: "Street in Colombo Fort with three-wheelers and a colonial-era building",
     timeZone: "Asia/Colombo",
     offset: "UTC+5:30",
@@ -34,7 +24,7 @@ const cities = [
   {
     name: "Ansan",
     line: "Where we watch them together.",
-    image: "/images/about/ansan.jpg",
+    image: "/images/about/ansan.webp",
     alt: "Ansan Station in Gyeonggi-do, South Korea",
     timeZone: "Asia/Seoul",
     offset: "UTC+9",
@@ -60,24 +50,13 @@ const night = [
   },
 ];
 
-const contacts = [
-  { icon: Phone, kind: "Call", value: PHONE.label, href: PHONE.href },
-  {
-    icon: MessageCircle,
-    kind: "WhatsApp",
-    value: WHATSAPP.label,
-    href: WHATSAPP.href,
-  },
-  { icon: Mail, kind: "Email", value: EMAIL.label, href: EMAIL.href },
-];
-
 export default function AboutPage() {
   return (
     <>
       {/* The screen: the place every story on this page ends up. */}
       <section className="relative isolate flex min-h-[78svh] items-end overflow-hidden">
         <Image
-          src="/images/about/cinema-about.jpg"
+          src="/images/about/cinema-about.webp"
           alt="An empty cinema auditorium facing the screen"
           fill
           priority
@@ -182,7 +161,7 @@ export default function AboutPage() {
         <Reveal className="lg:col-span-5">
           <div className="relative aspect-[4/5] overflow-hidden">
             <Image
-              src="/images/about/intro-2.jpg"
+              src="/images/about/intro-2.webp"
               alt="Striped paper bags of popcorn"
               fill
               sizes="(max-width: 1024px) 100vw, 40vw"
@@ -226,33 +205,7 @@ export default function AboutPage() {
               us on a release? Talk to us.
             </p>
           </Reveal>
-          <ul className="space-y-6 lg:col-span-6">
-            {contacts.map(({ icon: Icon, kind, value, href }, i) => (
-              <li key={kind}>
-                <Reveal delay={0.07 * (i + 1)}>
-                  <a
-                    href={href}
-                    {...(href.startsWith("http")
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
-                    className="group flex items-center gap-4 rounded-control outline-offset-4"
-                  >
-                    <span className="grid size-12 shrink-0 place-items-center rounded-full bg-on-accent text-accent transition-transform group-hover:scale-110">
-                      <Icon className="size-5" aria-hidden />
-                    </span>
-                    <span>
-                      <span className="block text-sm font-semibold">
-                        {kind}
-                      </span>
-                      <span className="block break-all text-xl font-semibold underline-offset-4 group-hover:underline sm:text-2xl">
-                        {value}
-                      </span>
-                    </span>
-                  </a>
-                </Reveal>
-              </li>
-            ))}
-          </ul>
+          <ContactChannels tone="accent" className="lg:col-span-6" />
         </div>
         <p className="container-page mt-16 text-sm opacity-80">
           Photos: “Colombo 02” by Bernard Gagnon,{" "}

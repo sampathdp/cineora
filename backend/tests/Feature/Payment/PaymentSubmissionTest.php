@@ -59,7 +59,7 @@ class PaymentSubmissionTest extends PaymentTestCase
 
         $proof = PaymentProof::firstOrFail();
         $this->assertSame('private', $proof->disk);
-        $this->assertMatchesRegularExpression('#^payment-proofs/\d{4}/\d{2}/[0-9a-z]{26}\.png$#', $proof->path);
+        $this->assertMatchesRegularExpression('#^payment-proofs/\d{4}/\d{2}/[0-9a-z]{26}\.webp$#', $proof->path);
         Storage::disk('private')->assertExists($proof->path);
         $this->assertSame([], Storage::disk('public')->allFiles(), 'proofs never touch the public disk');
         $this->assertSame(64, strlen($proof->sha256));
@@ -212,7 +212,7 @@ class PaymentSubmissionTest extends PaymentTestCase
         $staff = "/api/v1/admin/payments/{$payment->public_id}/proofs/{$proof->id}";
 
         $r = $this->as($this->customer)->get($own)->assertOk();
-        $this->assertSame('image/png', $r->headers->get('Content-Type'));
+        $this->assertSame('image/webp', $r->headers->get('Content-Type'));
         $this->assertSame('nosniff', $r->headers->get('X-Content-Type-Options'));
         $this->assertStringContainsString('no-store', $r->headers->get('Cache-Control'));
         $this->assertStringContainsString('sandbox', $r->headers->get('Content-Security-Policy'));

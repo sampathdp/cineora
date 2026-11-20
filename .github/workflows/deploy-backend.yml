@@ -139,6 +139,9 @@ jobs:
               RewriteCond %{REQUEST_FILENAME} -d
               RewriteRule ^ - [L]
 
+              # Static images are WebP now; rows seeded before the switch may still point at .jpg/.png.
+              RewriteRule ^((?:images|brand)/.+)\.(?:jpe?g|png)$ /$1.webp [R=301,L]
+
               # Old pretty URLs (and links in already-sent emails) -> static pages that read the id from the query.
               RewriteRule ^movies/(?!view/?$)([^/]+)/?$ /movies/view/?slug=$1 [R=301,L]
               RewriteRule ^events/(?!view/?$)([^/]+)/?$ /events/view/?slug=$1 [R=301,L]

@@ -10,7 +10,8 @@
     "start": "node scripts/serve-static.mjs out",
     "lint": "eslint",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "images:webp": "node scripts/to-webp.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^6.0.0",

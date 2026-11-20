@@ -42,8 +42,8 @@
         "to": "#050506",
         "accent": "#f0782b",
         "motif": "moon",
-        "image": "/images/movies/ashes-of-the-lantern.jpg",
-        "backdrop": "/images/movies/ashes-of-the-lantern-backdrop.jpg"
+        "image": "/images/movies/ashes-of-the-lantern.webp",
+        "backdrop": "/images/movies/ashes-of-the-lantern-backdrop.webp"
       },
       "featured": true
     },
@@ -84,8 +84,8 @@
         "to": "#0b1219",
         "accent": "#ffb27a",
         "motif": "mountains",
-        "image": "/images/movies/the-glass-horizon.jpg",
-        "backdrop": "/images/movies/the-glass-horizon-backdrop.jpg"
+        "image": "/images/movies/the-glass-horizon.webp",
+        "backdrop": "/images/movies/the-glass-horizon-backdrop.webp"
       },
       "featured": true
     },
@@ -127,8 +127,8 @@
         "to": "#060309",
         "accent": "#ff6a3d",
         "motif": "city",
-        "image": "/images/movies/neon-requiem.jpg",
-        "backdrop": "/images/movies/neon-requiem-backdrop.jpg"
+        "image": "/images/movies/neon-requiem.webp",
+        "backdrop": "/images/movies/neon-requiem-backdrop.webp"
       },
       "featured": true
     },
@@ -166,8 +166,8 @@
         "to": "#0a0d2a",
         "accent": "#ffd27a",
         "motif": "stars",
-        "image": "/images/movies/paper-moons.jpg",
-        "backdrop": "/images/movies/paper-moons-backdrop.jpg"
+        "image": "/images/movies/paper-moons.webp",
+        "backdrop": "/images/movies/paper-moons-backdrop.webp"
       }
     },
     {
@@ -204,8 +204,8 @@
         "to": "#04141a",
         "accent": "#f7a35c",
         "motif": "waves",
-        "image": "/images/movies/the-last-tide.jpg",
-        "backdrop": "/images/movies/the-last-tide-backdrop.jpg"
+        "image": "/images/movies/the-last-tide.webp",
+        "backdrop": "/images/movies/the-last-tide-backdrop.webp"
       }
     },
     {
@@ -241,8 +241,8 @@
         "to": "#1a0a04",
         "accent": "#ffcf70",
         "motif": "sun",
-        "image": "/images/movies/iron-meridian.jpg",
-        "backdrop": "/images/movies/iron-meridian-backdrop.jpg"
+        "image": "/images/movies/iron-meridian.webp",
+        "backdrop": "/images/movies/iron-meridian-backdrop.webp"
       }
     },
     {
@@ -279,8 +279,8 @@
         "to": "#0d0705",
         "accent": "#e8b25c",
         "motif": "door",
-        "image": "/images/movies/midnight-at-marlowe.jpg",
-        "backdrop": "/images/movies/midnight-at-marlowe-backdrop.jpg"
+        "image": "/images/movies/midnight-at-marlowe.webp",
+        "backdrop": "/images/movies/midnight-at-marlowe-backdrop.webp"
       }
     },
     {
@@ -317,8 +317,8 @@
         "to": "#050a08",
         "accent": "#f08a3c",
         "motif": "forest",
-        "image": "/images/movies/wolf-season.jpg",
-        "backdrop": "/images/movies/wolf-season-backdrop.jpg"
+        "image": "/images/movies/wolf-season.webp",
+        "backdrop": "/images/movies/wolf-season-backdrop.webp"
       }
     },
     {
@@ -353,8 +353,8 @@
         "to": "#1c1503",
         "accent": "#fff0a8",
         "motif": "sun",
-        "image": "/images/movies/the-lemon-heist.jpg",
-        "backdrop": "/images/movies/the-lemon-heist-backdrop.jpg"
+        "image": "/images/movies/the-lemon-heist.webp",
+        "backdrop": "/images/movies/the-lemon-heist-backdrop.webp"
       }
     },
     {
@@ -392,8 +392,8 @@
         "to": "#0b0620",
         "accent": "#ff9d6b",
         "motif": "stars",
-        "image": "/images/movies/little-comet.jpg",
-        "backdrop": "/images/movies/little-comet-backdrop.jpg"
+        "image": "/images/movies/little-comet.webp",
+        "backdrop": "/images/movies/little-comet-backdrop.webp"
       }
     },
     {
@@ -425,8 +425,8 @@
         "to": "#0a0302",
         "accent": "#ff7a3a",
         "motif": "eye",
-        "image": "/images/movies/ember-protocol.jpg",
-        "backdrop": "/images/movies/ember-protocol-backdrop.jpg"
+        "image": "/images/movies/ember-protocol.webp",
+        "backdrop": "/images/movies/ember-protocol-backdrop.webp"
       }
     },
     {
@@ -458,8 +458,8 @@
         "to": "#120a04",
         "accent": "#f2b66d",
         "motif": "forest",
-        "image": "/images/movies/the-quiet-orchard.jpg",
-        "backdrop": "/images/movies/the-quiet-orchard-backdrop.jpg"
+        "image": "/images/movies/the-quiet-orchard.webp",
+        "backdrop": "/images/movies/the-quiet-orchard-backdrop.webp"
       }
     },
     {
@@ -490,8 +490,8 @@
         "to": "#0a0204",
         "accent": "#ff5d3a",
         "motif": "door",
-        "image": "/images/movies/crimson-carnival.jpg",
-        "backdrop": "/images/movies/crimson-carnival-backdrop.jpg"
+        "image": "/images/movies/crimson-carnival.webp",
+        "backdrop": "/images/movies/crimson-carnival-backdrop.webp"
       }
     },
     {
@@ -523,8 +523,8 @@
         "to": "#04140f",
         "accent": "#ffd87a",
         "motif": "stars",
-        "image": "/images/movies/galaxy-garden.jpg",
-        "backdrop": "/images/movies/galaxy-garden-backdrop.jpg"
+        "image": "/images/movies/galaxy-garden.webp",
+        "backdrop": "/images/movies/galaxy-garden-backdrop.webp"
       }
     }
   ],

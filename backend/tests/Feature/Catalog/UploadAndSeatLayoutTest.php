@@ -27,14 +27,14 @@ class UploadAndSeatLayoutTest extends CatalogTestCase
         $r = $this->as($this->cm())->post($url, ['image' => UploadedFile::fake()->image('../../evil name.php.jpg', 800, 1200)], ['Accept' => 'application/json'])->assertOk();
 
         $path = $movie->fresh()->poster_path;
-        $this->assertMatchesRegularExpression('#^movies/posters/[0-9a-z]{26}\.jpg$#', $path);
+        $this->assertMatchesRegularExpression('#^movies/posters/[0-9a-z]{26}\.webp$#', $path);
         $this->assertStringNotContainsString('evil', $path);
         Storage::disk('public')->assertExists($path);
         $this->assertStringContainsString($path, $r->json('data.poster_url'));
 
         $this->post($url, ['image' => UploadedFile::fake()->image('b.png', 600, 900)], ['Accept' => 'application/json'])->assertOk();
         Storage::disk('public')->assertMissing($path);
-        $this->assertStringEndsWith('.png', $movie->fresh()->poster_path);
+        $this->assertStringEndsWith('.webp', $movie->fresh()->poster_path);
     }
 
     public function test_non_images_and_disguised_files_are_rejected(): void
