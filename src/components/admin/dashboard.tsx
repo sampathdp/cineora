@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
-  ArrowUpRight,
   Banknote,
   BarChart3,
   Building2,
@@ -16,6 +15,7 @@ import {
   Film,
   RefreshCw,
   ScanLine,
+  ShieldCheck,
   Sparkles,
   Ticket,
   TrendingUp,
@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { useAuth } from "@/providers/auth-provider";
-import { PageTitle, Panel, Section, SelectField, StatCard, Pill, useLoad, won } from "./kit";
+import { PageTitle, Panel, Section, StatCard, Pill, useLoad, won } from "./kit";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -61,74 +61,81 @@ export function Dashboard() {
       <section className="py-8">
         <PageTitle
           title={`Welcome, ${user?.name ?? "Staff"}`}
-          hint="Use the navigation menu to open areas available to your assigned role."
+          hint="Use the navigation menu to open operational areas available to your assigned role."
         />
       </section>
     );
   }
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 animate-in fade-in duration-200">
       {/* Hero Welcome & Control Bar */}
-      <div className="flex flex-col gap-4 rounded-2xl border border-line/70 bg-gradient-to-br from-elevated/90 via-surface/60 to-elevated/40 p-5 sm:p-7 shadow-sm backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-xs font-semibold text-accent">
-              <Sparkles className="size-3" />
-              <span>Operations HQ</span>
-            </span>
-            <span className="text-xs text-muted">· Live Telemetry</span>
-          </div>
-          <h1 className="display text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            {greeting}, {user?.name?.split(" ")[0] ?? "Staff"}
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Overview of live ticketing, verified revenue, and cinema operations across your venues.
-          </p>
-        </div>
+      <div className="relative overflow-hidden rounded-3xl border border-line/70 bg-gradient-to-br from-elevated/95 via-surface/80 to-elevated/50 p-6 sm:p-8 shadow-sm backdrop-blur-md">
+        {/* Ambient background glows */}
+        <div className="pointer-events-none absolute -right-20 -top-20 size-80 rounded-full bg-accent/10 blur-3xl" />
+        <div className="pointer-events-none absolute right-1/3 -bottom-20 size-60 rounded-full bg-sky-500/5 blur-3xl" />
 
-        {/* Trend Range Selector & Refresh */}
-        <div className="flex items-center gap-2.5 sm:self-center">
-          <div className="flex items-center rounded-xl border border-line/70 bg-surface/80 p-1 shadow-inner">
-            {(["7", "30", "90"] as const).map((d) => (
-              <button
-                key={d}
-                type="button"
-                onClick={() => setDays(d)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all",
-                  days === d
-                    ? "bg-accent text-on-accent shadow-sm"
-                    : "text-muted hover:text-foreground",
-                )}
-              >
-                {d}d
-              </button>
-            ))}
+        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-0.5 text-xs font-semibold text-accent shadow-sm">
+                <Sparkles className="size-3" />
+                <span>Operations HQ</span>
+              </span>
+              <span className="text-xs text-muted">· Live Telemetry & Control Hub</span>
+            </div>
+            <h1 className="display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+              {greeting}, {user?.name?.split(" ")[0] ?? "Staff"}
+            </h1>
+            <p className="mt-1 text-sm text-muted max-w-2xl leading-relaxed">
+              Real-time monitoring of ticket sales, box office check-ins, verified bank settlements, and venue screenings.
+            </p>
           </div>
 
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={reload}
-            disabled={loading}
-            title="Refresh dashboard metrics"
-            className="h-9 px-3"
-          >
-            <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
-          </Button>
+          {/* Trend Range Selector & Refresh */}
+          <div className="flex items-center gap-3 shrink-0 sm:self-center">
+            <div className="flex items-center rounded-2xl border border-line/80 bg-surface/80 p-1 shadow-inner backdrop-blur-sm">
+              {(["7", "30", "90"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDays(d)}
+                  className={cn(
+                    "rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer",
+                    days === d
+                      ? "bg-accent text-on-accent shadow-sm font-bold"
+                      : "text-muted hover:text-foreground",
+                  )}
+                >
+                  {d} Days
+                </button>
+              ))}
+            </div>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={reload}
+              disabled={loading}
+              title="Refresh dashboard metrics"
+              className="h-9 px-3.5 rounded-xl cursor-pointer shadow-sm hover:border-accent"
+            >
+              <RefreshCw className={cn("size-3.5 mr-1.5", loading && "animate-spin")} />
+              <span className="text-xs font-semibold">Sync</span>
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Quick Operations Toolbar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted shrink-0 mr-1">
-          Quick Actions:
+      <div className="flex items-center gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+        <span className="text-xs font-bold uppercase tracking-wider text-muted shrink-0 mr-1 flex items-center gap-1">
+          <span>Shortcuts:</span>
         </span>
         {can("tickets.validate") && (
           <Link
             href="/admin/tickets/scan"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line/80 bg-elevated px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-line/80 bg-elevated/80 px-3.5 py-2 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition duration-150"
           >
             <ScanLine className="size-3.5 text-accent" />
             <span>Scan Tickets</span>
@@ -137,7 +144,7 @@ export function Dashboard() {
         {can("showtimes.manage") && (
           <Link
             href="/admin/showtimes"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line/80 bg-elevated px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-line/80 bg-elevated/80 px-3.5 py-2 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition duration-150"
           >
             <CalendarClock className="size-3.5 text-sky-500" />
             <span>Schedule Showtime</span>
@@ -146,7 +153,7 @@ export function Dashboard() {
         {can("movies.view") && (
           <Link
             href="/admin/movies"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line/80 bg-elevated px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-line/80 bg-elevated/80 px-3.5 py-2 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition duration-150"
           >
             <Clapperboard className="size-3.5 text-purple-500" />
             <span>Manage Catalog</span>
@@ -155,7 +162,7 @@ export function Dashboard() {
         {can("payments.view") && (
           <Link
             href="/admin/payments"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line/80 bg-elevated px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-line/80 bg-elevated/80 px-3.5 py-2 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition duration-150"
           >
             <Banknote className="size-3.5 text-emerald-500" />
             <span>Payments Queue</span>
@@ -164,7 +171,7 @@ export function Dashboard() {
         {can("reports.view") && (
           <Link
             href="/admin/reports"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-line/80 bg-elevated px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition"
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-line/80 bg-elevated/80 px-3.5 py-2 text-xs font-semibold text-foreground shadow-sm hover:border-accent hover:text-accent transition duration-150"
           >
             <BarChart3 className="size-3.5 text-amber-500" />
             <span>Financial Reports</span>
@@ -182,49 +189,49 @@ export function Dashboard() {
             <div className="space-y-8">
               {/* Alert Banners if payments need attention */}
               {(d.pending_verification > 0 || d.exceptions > 0) && (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 sm:grid-cols-2 animate-in fade-in">
                   {d.pending_verification > 0 && (
-                    <div className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-600 dark:text-amber-400">
+                    <div className="flex items-center justify-between rounded-2xl border border-amber-500/35 bg-amber-500/10 p-4 text-amber-600 dark:text-amber-400 shadow-sm backdrop-blur-sm">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-lg bg-amber-500/20 text-amber-500">
+                        <div className="flex size-10 items-center justify-center rounded-xl bg-amber-500/20 text-amber-500 shadow-inner">
                           <Clock className="size-5" />
                         </div>
                         <div>
                           <p className="text-sm font-bold">
                             {d.pending_verification} Payment{d.pending_verification > 1 ? "s" : ""} Awaiting Review
                           </p>
-                          <p className="text-xs opacity-80">Customer bank transfer slips waiting for staff approval</p>
+                          <p className="text-xs opacity-85">Customer bank transfer slips waiting for staff approval</p>
                         </div>
                       </div>
                       <Link
                         href="/admin/payments"
-                        className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-bold hover:bg-amber-500/30 transition"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/20 px-3.5 py-2 text-xs font-bold hover:bg-amber-500/30 transition shadow-sm"
                       >
                         <span>Review</span>
-                        <ArrowRight className="size-3" />
+                        <ArrowRight className="size-3.5" />
                       </Link>
                     </div>
                   )}
 
                   {d.exceptions > 0 && (
-                    <div className="flex items-center justify-between rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-rose-600 dark:text-rose-400">
+                    <div className="flex items-center justify-between rounded-2xl border border-rose-500/35 bg-rose-500/10 p-4 text-rose-600 dark:text-rose-400 shadow-sm backdrop-blur-sm">
                       <div className="flex items-center gap-3">
-                        <div className="flex size-9 items-center justify-center rounded-lg bg-rose-500/20 text-rose-500">
+                        <div className="flex size-10 items-center justify-center rounded-xl bg-rose-500/20 text-rose-500 shadow-inner">
                           <AlertTriangle className="size-5" />
                         </div>
                         <div>
                           <p className="text-sm font-bold">
                             {d.exceptions} Payment Exception{d.exceptions > 1 ? "s" : ""}
                           </p>
-                          <p className="text-xs opacity-80">Mismatched amounts or disputed transactions</p>
+                          <p className="text-xs opacity-85">Mismatched amounts or disputed transactions</p>
                         </div>
                       </div>
                       <Link
                         href="/admin/payments?queue=exceptions"
-                        className="inline-flex items-center gap-1 rounded-lg bg-rose-500/20 px-3 py-1.5 text-xs font-bold hover:bg-rose-500/30 transition"
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-rose-500/20 px-3.5 py-2 text-xs font-bold hover:bg-rose-500/30 transition shadow-sm"
                       >
                         <span>Resolve</span>
-                        <ArrowRight className="size-3" />
+                        <ArrowRight className="size-3.5" />
                       </Link>
                     </div>
                   )}
@@ -298,7 +305,7 @@ export function Dashboard() {
                   subvalue={d.pending_verification > 0 ? "Requires review" : "Queue clear"}
                   action={
                     d.pending_verification > 0 ? (
-                      <Link href="/admin/payments" className="text-amber-500 hover:underline">
+                      <Link href="/admin/payments" className="text-amber-500 hover:underline font-semibold">
                         Open queue →
                       </Link>
                     ) : undefined
@@ -313,7 +320,7 @@ export function Dashboard() {
                   subvalue={d.exceptions > 0 ? "Action required" : "Zero errors"}
                   action={
                     d.exceptions > 0 ? (
-                      <Link href="/admin/payments?queue=exceptions" className="text-rose-500 hover:underline">
+                      <Link href="/admin/payments?queue=exceptions" className="text-rose-500 hover:underline font-semibold">
                         Investigate →
                       </Link>
                     ) : undefined
@@ -336,8 +343,8 @@ export function Dashboard() {
                   subtitle={`Past ${days} days booking activity`}
                   icon={Ticket}
                   action={
-                    <span className="text-xs font-semibold text-muted">
-                      Total: {d.trend.reduce((acc, curr) => acc + curr.bookings, 0)} orders
+                    <span className="rounded-full border border-line/60 bg-surface/80 px-2.5 py-1 text-xs font-semibold text-muted">
+                      Total: <strong className="text-foreground">{d.trend.reduce((acc, curr) => acc + curr.bookings, 0)}</strong> orders
                     </span>
                   }
                 >
@@ -352,7 +359,7 @@ export function Dashboard() {
                   subtitle={`Past ${days} days verified settlement`}
                   icon={Banknote}
                   action={
-                    <span className="text-xs font-semibold text-accent">
+                    <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 text-xs font-bold text-accent">
                       Total: {won(d.trend.reduce((acc, curr) => acc + curr.revenue, 0))}
                     </span>
                   }
@@ -367,29 +374,32 @@ export function Dashboard() {
 
               {/* Operational Status & Fast Links */}
               <div className="grid gap-6 lg:grid-cols-3">
-                <div className="rounded-card border border-line/70 bg-elevated/70 p-5 shadow-sm lg:col-span-2">
-                  <div className="flex items-center justify-between border-b border-line/40 pb-3 mb-4">
-                    <h3 className="display text-lg text-foreground">Operational Status</h3>
+                <div className="rounded-2xl border border-line/70 bg-elevated/70 p-6 shadow-sm backdrop-blur-md lg:col-span-2">
+                  <div className="flex items-center justify-between border-b border-line/40 pb-4 mb-5">
+                    <div>
+                      <h3 className="display text-lg font-bold text-foreground">Operational Status</h3>
+                      <p className="text-xs text-muted">Real-time health of core cinema microservices</p>
+                    </div>
                     <Pill tone="good">All Systems Live</Pill>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-3 text-sm">
-                    <div className="rounded-xl border border-line/50 bg-surface/50 p-3.5">
-                      <p className="text-xs text-muted">Ticketing Engine</p>
-                      <p className="mt-1 font-semibold text-foreground flex items-center gap-1.5">
+                    <div className="rounded-xl border border-line/60 bg-surface/60 p-4 transition hover:border-line">
+                      <p className="text-xs text-muted font-medium">Ticketing Engine</p>
+                      <p className="mt-1.5 font-bold text-foreground flex items-center gap-2">
                         <CheckCircle2 className="size-4 text-emerald-500" />
                         <span>Ready & On Sale</span>
                       </p>
                     </div>
-                    <div className="rounded-xl border border-line/50 bg-surface/50 p-3.5">
-                      <p className="text-xs text-muted">Door Scanner Service</p>
-                      <p className="mt-1 font-semibold text-foreground flex items-center gap-1.5">
+                    <div className="rounded-xl border border-line/60 bg-surface/60 p-4 transition hover:border-line">
+                      <p className="text-xs text-muted font-medium">Door Scanner Service</p>
+                      <p className="mt-1.5 font-bold text-foreground flex items-center gap-2">
                         <CheckCircle2 className="size-4 text-emerald-500" />
                         <span>QR Validation Active</span>
                       </p>
                     </div>
-                    <div className="rounded-xl border border-line/50 bg-surface/50 p-3.5">
-                      <p className="text-xs text-muted">Bank Transfer Gateway</p>
-                      <p className="mt-1 font-semibold text-foreground flex items-center gap-1.5">
+                    <div className="rounded-xl border border-line/60 bg-surface/60 p-4 transition hover:border-line">
+                      <p className="text-xs text-muted font-medium">Bank Transfer Gateway</p>
+                      <p className="mt-1.5 font-bold text-foreground flex items-center gap-2">
                         <CheckCircle2 className="size-4 text-emerald-500" />
                         <span>Verification Online</span>
                       </p>
@@ -397,20 +407,24 @@ export function Dashboard() {
                   </div>
                 </div>
 
-                <div className="rounded-card border border-line/70 bg-elevated/70 p-5 shadow-sm">
-                  <div className="border-b border-line/40 pb-3 mb-3">
-                    <h3 className="display text-lg text-foreground">Staff Access</h3>
+                <div className="rounded-2xl border border-line/70 bg-elevated/70 p-6 shadow-sm backdrop-blur-md flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 border-b border-line/40 pb-4 mb-4">
+                      <ShieldCheck className="size-5 text-accent" />
+                      <h3 className="display text-lg font-bold text-foreground">Staff Access</h3>
+                    </div>
+                    <p className="text-xs text-muted">
+                      Active Account: <strong className="text-foreground">{user?.email}</strong>
+                    </p>
+                    <p className="mt-1.5 text-xs text-muted">
+                      Assigned Roles: <span className="font-bold text-accent">{user?.roles.join(", ") || "Staff"}</span>
+                    </p>
                   </div>
-                  <p className="text-xs text-muted">
-                    Signed in as <strong className="text-foreground">{user?.email}</strong>
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    Assigned Roles: <span className="font-semibold text-accent">{user?.roles.join(", ") || "Staff"}</span>
-                  </p>
-                  <div className="mt-4 pt-3 border-t border-line/40 flex items-center justify-between text-xs">
-                    <span className="text-muted">Two-Factor Auth:</span>
+
+                  <div className="mt-6 pt-4 border-t border-line/40 flex items-center justify-between text-xs">
+                    <span className="text-muted font-medium">Two-Factor Auth:</span>
                     <Pill tone={user?.mfa.enabled ? "good" : "warn"}>
-                      {user?.mfa.enabled ? "Enforced" : "Disabled"}
+                      {user?.mfa.enabled ? "Enforced & Active" : "Disabled"}
                     </Pill>
                   </div>
                 </div>
@@ -424,7 +438,7 @@ export function Dashboard() {
 }
 
 /**
- * Modern Interactive Bar Chart with tooltips and clean height scaling
+ * Modern Interactive Bar Chart with tooltips, smooth hover states, and clean height scaling
  */
 function ModernBars({
   points,
@@ -447,29 +461,29 @@ function ModernBars({
   return (
     <figure className="relative pt-2">
       {/* Dynamic Tooltip Header */}
-      <div className="mb-3 flex h-6 items-center justify-between text-xs">
+      <div className="mb-3 flex h-7 items-center justify-between text-xs">
         {activePoint ? (
-          <div className="flex items-center gap-2 font-medium">
+          <div className="flex items-center gap-2 font-medium animate-in fade-in">
             <span className="text-foreground font-semibold">{activePoint.label}:</span>
-            <span className="font-bold text-accent">{fmt(activePoint.value)}</span>
+            <span className="font-extrabold text-accent">{fmt(activePoint.value)}</span>
             <span className="text-muted">({unit})</span>
           </div>
         ) : (
           <div className="text-muted flex items-center gap-2">
-            <span>Daily average: <strong className="text-foreground">{fmt(avg)}</strong></span>
+            <span>Daily average: <strong className="text-foreground font-semibold">{fmt(avg)}</strong></span>
           </div>
         )}
-        <span className="text-muted">Max day: {fmt(max)}</span>
+        <span className="text-muted text-[11px]">Peak: <strong className="text-foreground">{fmt(max)}</strong></span>
       </div>
 
       {/* Bars Container */}
       <div
-        className="flex h-44 items-end gap-1 sm:gap-1.5 rounded-xl border border-line/40 bg-surface/40 p-2.5"
+        className="flex h-44 items-end gap-1 sm:gap-1.5 rounded-2xl border border-line/50 bg-surface/50 p-3 backdrop-blur-sm"
         role="img"
         aria-label={`${unit} per day, total ${fmt(total)}`}
       >
         {points.map((p, idx) => {
-          const heightPercent = Math.max(4, (p.value / max) * 100);
+          const heightPercent = Math.max(5, (p.value / max) * 100);
           const isHovered = hoveredIndex === idx;
           const isHighest = p.value === max && max > 0;
 
@@ -482,14 +496,14 @@ function ModernBars({
             >
               <div
                 className={cn(
-                  "w-full rounded-t-sm sm:rounded-t-md transition-all duration-150",
+                  "w-full rounded-t-md transition-all duration-200",
                   isHovered
-                    ? "bg-accent shadow-md shadow-accent/30 scale-x-110"
+                    ? "bg-accent shadow-lg shadow-accent/40 scale-x-110"
                     : isHighest
-                    ? "bg-accent/90"
+                    ? "bg-gradient-to-t from-accent to-accent-hover shadow-sm"
                     : p.value > 0
-                    ? "bg-accent/60 group-hover:bg-accent/90"
-                    : "bg-line/40",
+                    ? "bg-accent/70 hover:bg-accent"
+                    : "bg-line/30",
                 )}
                 style={{ height: `${heightPercent}%` }}
               />
@@ -499,9 +513,9 @@ function ModernBars({
       </div>
 
       {/* X-Axis labels */}
-      <figcaption className="mt-2.5 flex justify-between text-[11px] text-muted">
+      <figcaption className="mt-3 flex justify-between text-[11px] text-muted">
         <span>{points[0]?.label}</span>
-        <span className="font-semibold text-foreground">Total: {fmt(total)}</span>
+        <span className="font-bold text-foreground">Total: {fmt(total)}</span>
         <span>{points.at(-1)?.label}</span>
       </figcaption>
 

@@ -92,8 +92,8 @@ jobs:
               Header always set X-Frame-Options "DENY"
               Header always set Referrer-Policy "strict-origin-when-cross-origin"
               Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-              # The ticket scanner is the only page that may ask for the camera.
-              <If "%{REQUEST_URI} =~ m#^/admin/tickets/scan/?$#">
+              # The ticket scanner and the paired phone scanner are the only pages that may ask for the camera.
+              <If "%{REQUEST_URI} =~ m#^/admin/(tickets/scan|scan-remote)/?$#">
                   Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=()"
               </If>
               # Hashed build assets never change; pages must always be revalidated.

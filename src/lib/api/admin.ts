@@ -82,6 +82,12 @@ export const adminApi = {
 
   validateTicket: (input: { code?: string; reference?: string; showtime?: string }) => apiPost<ScanResult>("/admin/tickets/validate", input).then((r) => r.data),
   recentScans: () => apiGet<{ outcome: string; seat: string | null; at: string | null }[]>("/admin/tickets/recent").then((r) => r.data),
+
+  /** Pair a phone as the scanner camera; the phone posts scans with the token, the desktop polls for results. */
+  createScannerPair: () => apiPost<{ token: string; expires_at: string }>("/admin/scanner/pairs").then((r) => r.data),
+  scannerPairEvents: (token: string, after: number) =>
+    apiGet<{ connected: boolean; events: { seq: number; result: ScanResult }[] }>(`/admin/scanner/pairs/${enc(token)}/events`, { query: { after } }).then((r) => r.data),
+  endScannerPair: (token: string) => apiDelete<null>(`/admin/scanner/pairs/${enc(token)}`),
 };
 
 type Query = Record<string, string | number | boolean | undefined | null>;

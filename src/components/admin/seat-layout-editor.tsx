@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Ban, Box, MousePointerClick, Paintbrush, Plus, RotateCcw, Trash2, X } from "lucide-react";
+import { Armchair, ArrowLeft, Ban, Box, MousePointerClick, Paintbrush, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
 import { Feedback, PageTitle, Section, useAction, useLoad } from "./kit";
@@ -319,6 +319,7 @@ function SeatLayout({ room, cinemaName }: { room: { id: string; name: string }; 
     <div>
       <PageTitle
         title={`Seat Layout: ${room.name}`}
+        icon={Armchair}
         hint="Configure rows, capacities, and customize individual seats with live ticket booking preview"
         breadcrumbs={[{ label: "Cinemas", href: "/admin/cinemas" }, { label: cinemaName }, { label: room.name }]}
         action={<Button variant="secondary" onClick={() => router.push("/admin/cinemas")}><ArrowLeft className="size-4" aria-hidden /> Back to cinemas</Button>}

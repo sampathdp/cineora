@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Edit2, Plus } from "lucide-react";
+import { CalendarClock, Clock, Edit2, Film, Plus, Sparkles, Tag, Trash2 } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
 import { zonedParts } from "@/lib/formatters";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
-import { AdminModal, DataTable, Feedback, PageTitle, Panel, Pager, Pill, Section, SelectField, TextField, useAction, useLoad, when, won } from "./kit";
+import { AdminModal, DataTable, Feedback, PageTitle, Pager, Pill, Section, SelectField, TextField, useAction, useLoad, when, won } from "./kit";
+import { cn } from "@/lib/utils";
 
 interface Showtime {
   id: string;
@@ -37,7 +38,7 @@ export function zonedToIso(local: string, timeZone: string): string {
   const [py, pmo, pda] = p.date.split("-").map(Number);
   const [ph, pmi] = p.time.split(":").map(Number);
   const offset = Date.UTC(py, pmo - 1, pda, ph, pmi) - guess;
-  return new Date(guess - offset).toISOString().replace(/\.\d{3}Z$/, "Z"); // the API accepts whole seconds only
+  return new Date(guess - offset).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
 export function ShowtimesAdmin() {
@@ -50,36 +51,133 @@ export function ShowtimesAdmin() {
   const [creating, setCreating] = useState(false);
 
   const cinemas = useLoad(() => adm.get<CinemaLite[]>("/cinemas").then((r) => r.data), "st-cinemas");
-  const list = useLoad(() => adm.get<Showtime[]>("/showtimes", { status, cinema, page, per_page: 20 }), `showtimes-${status}-${cinema}-${page}`);
+  const list = useLoad(
+    () => adm.get<Showtime[]>("/showtimes", { status, cinema, page, per_page: 20 }),
+    `showtimes-${status}-${cinema}-${page}`,
+  );
 
   return (
-    <section>
+    <section className="space-y-6">
       <PageTitle
         title="Showtimes & Screening Grid"
         eyebrow="Cinema Operations"
-        hint="Schedule screenings, allocate screening halls, and configure category seat pricing."
-        action={can("showtimes.manage") ? <Button onClick={() => { setCreating(true); setSelectedId(null); }}><Plus className="size-4" aria-hidden /> New showtime</Button> : undefined}
+        icon={CalendarClock}
+        hint="Schedule movie screenings, allocate auditorium halls, manage recurring timetables, and configure seat pricing tiers."
+        action={
+          can("showtimes.manage") ? (
+            <Button
+              onClick={() => {
+                setCreating(true);
+                setSelectedId(null);
+              }}
+              className="shadow-sm"
+            >
+              <Plus className="size-4 mr-1.5" aria-hidden />
+              <span>Schedule showtime</span>
+            </Button>
+          ) : undefined
+        }
       />
+
       <Feedback error={act.error} note={act.note} />
-      <div className="mb-4 grid gap-3 sm:grid-cols-2">
-        <SelectField id="st-status" label="Status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
-          <option value="">All</option><option value="draft">Draft</option><option value="on_sale">On sale</option><option value="cancelled">Cancelled</option><option value="completed">Completed</option>
-        </SelectField>
-        <SelectField id="st-cinema" label="Cinema" value={cinema} onChange={(e) => { setCinema(e.target.value); setPage(1); }}>
-          <option value="">All my cinemas</option>
-          {cinemas.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </SelectField>
+
+      {/* Modern Filter Toolbar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 rounded-2xl border border-line/70 bg-elevated/70 p-4 shadow-sm backdrop-blur-sm">
+        <div className="flex-1">
+          <SelectField
+            id="st-status"
+            label="Filter status"
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All statuses</option>
+            <option value="on_sale">On sale (Active)</option>
+            <option value="draft">Draft</option>
+            <option value="cancelled">Cancelled</option>
+            <option value="completed">Completed</option>
+          </SelectField>
+        </div>
+        <div className="flex-1">
+          <SelectField
+            id="st-cinema"
+            label="Filter cinema venue"
+            value={cinema}
+            onChange={(e) => {
+              setCinema(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All cinema venues</option>
+            {cinemas.data?.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </SelectField>
+        </div>
       </div>
+
       <Section loading={list.loading} error={list.error} data={list.data}>
         {(res) => (
           <>
-            <DataTable rows={res.data} rowKey={(s) => s.id} onRowClick={(s) => { setSelectedId(s.id); setCreating(false); }} empty="No showtimes match."
+            <DataTable
+              rows={res.data}
+              rowKey={(s) => s.id}
+              onRowClick={(s) => {
+                setSelectedId(s.id);
+                setCreating(false);
+              }}
+              empty="No showtimes match your filter."
               columns={[
-                { key: "m", label: "Movie", render: (s) => <span className="font-semibold">{s.movie.title}</span> },
-                { key: "c", label: "Cinema / room", render: (s) => `${s.cinema.name} · ${s.room.name}` },
-                { key: "t", label: "Starts", render: (s) => when(s.starts_at) },
-                { key: "p", label: "From", render: (s) => won(Math.min(...s.prices.map((p) => p.price))) },
-                { key: "s", label: "Status", render: (s) => <Pill tone={tone[s.status]}>{s.status.replace("_", " ")}</Pill> },
+                {
+                  key: "m",
+                  label: "Movie Title",
+                  render: (s) => (
+                    <div>
+                      <span className="font-bold text-foreground block">{s.movie.title}</span>
+                      <span className="text-xs text-muted">{s.movie.duration_min} minutes</span>
+                    </div>
+                  ),
+                },
+                {
+                  key: "c",
+                  label: "Venue & Hall",
+                  render: (s) => (
+                    <div className="text-xs">
+                      <span className="font-semibold text-foreground">{s.cinema.name}</span>
+                      <span className="block text-muted mt-0.5">{s.room.name}</span>
+                    </div>
+                  ),
+                },
+                {
+                  key: "t",
+                  label: "Showtime (Starts)",
+                  render: (s) => (
+                    <div className="text-xs">
+                      <span className="font-semibold text-foreground block">{when(s.starts_at)}</span>
+                      <span className="text-muted">Cutoff: -{s.sales_cutoff_minutes}m</span>
+                    </div>
+                  ),
+                },
+                {
+                  key: "p",
+                  label: "Starting Price",
+                  render: (s) => (
+                    <span className="font-bold text-accent text-xs">
+                      {won(Math.min(...s.prices.map((p) => p.price)))}
+                    </span>
+                  ),
+                },
+                {
+                  key: "s",
+                  label: "Status",
+                  render: (s) => (
+                    <Pill tone={tone[s.status]}>{s.status.replace("_", " ")}</Pill>
+                  ),
+                },
                 {
                   key: "actions",
                   label: "Actions",
@@ -89,12 +187,16 @@ export function ShowtimesAdmin() {
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => { setSelectedId(s.id); setCreating(false); }}
-                        className="h-8 px-2.5 text-xs font-semibold cursor-pointer"
+                        onClick={() => {
+                          setSelectedId(s.id);
+                          setCreating(false);
+                        }}
+                        className="h-8 px-2.5 text-xs font-semibold cursor-pointer shadow-sm"
                       >
                         <Edit2 className="size-3.5 mr-1" />
                         <span>Edit</span>
                       </Button>
+
                       {can("showtimes.manage") && s.status === "draft" && (
                         <Button
                           size="sm"
@@ -104,11 +206,12 @@ export function ShowtimesAdmin() {
                               list.reload();
                             }
                           }}
-                          className="h-8 px-2 text-xs cursor-pointer"
+                          className="h-8 px-2.5 text-xs border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
                         >
                           Publish
                         </Button>
                       )}
+
                       {can("showtimes.manage") && s.status === "on_sale" && (
                         <Button
                           size="sm"
@@ -128,21 +231,59 @@ export function ShowtimesAdmin() {
                     </div>
                   ),
                 },
-              ]} />
-            <Pager page={Number(res.meta?.page ?? 1)} last={Number(res.meta?.last_page ?? 1)} onPage={setPage} />
+              ]}
+            />
+            <Pager
+              page={Number(res.meta?.page ?? 1)}
+              last={Number(res.meta?.last_page ?? 1)}
+              onPage={setPage}
+            />
           </>
         )}
       </Section>
-      {creating ? <CreateShowtime cinemas={cinemas.data ?? []} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setSelectedId(id); list.reload(); }} /> : null}
-      {selectedId ? <ShowtimeDetail key={selectedId} id={selectedId} onChanged={list.reload} onClose={() => setSelectedId(null)} /> : null}
+
+      {creating ? (
+        <CreateShowtime
+          cinemas={cinemas.data ?? []}
+          onClose={() => setCreating(false)}
+          onCreated={(id) => {
+            setCreating(false);
+            setSelectedId(id);
+            list.reload();
+          }}
+        />
+      ) : null}
+
+      {selectedId ? (
+        <ShowtimeDetail
+          key={selectedId}
+          id={selectedId}
+          onChanged={list.reload}
+          onClose={() => setSelectedId(null)}
+        />
+      ) : null}
     </section>
   );
 }
 
-function CreateShowtime({ cinemas, onClose, onCreated }: { cinemas: CinemaLite[]; onClose: () => void; onCreated: (id: string | null) => void }) {
+function CreateShowtime({
+  cinemas,
+  onClose,
+  onCreated,
+}: {
+  cinemas: CinemaLite[];
+  onClose: () => void;
+  onCreated: (id: string | null) => void;
+}) {
   const act = useAction();
-  const movies = useLoad(() => adm.get<MovieLite[]>("/movies", { status: "published", per_page: 100 }).then((r) => r.data), "st-movies");
-  const cats = useLoad(() => adm.get<{ key: string; name: string; default_price: number }[]>("/seat-categories").then((r) => r.data), "st-cats");
+  const movies = useLoad(
+    () => adm.get<MovieLite[]>("/movies", { status: "published", per_page: 100 }).then((r) => r.data),
+    "st-movies",
+  );
+  const cats = useLoad(
+    () => adm.get<{ key: string; name: string; default_price: number }[]>("/seat-categories").then((r) => r.data),
+    "st-cats",
+  );
   const [pickedCinema, setCinemaId] = useState("");
   const cinemaId = pickedCinema || cinemas[0]?.id || "";
   const [roomId, setRoomId] = useState("");
@@ -157,8 +298,17 @@ function CreateShowtime({ cinemas, onClose, onCreated }: { cinemas: CinemaLite[]
   const cinema = cinemas.find((c) => c.id === cinemaId);
   const rooms = cinema?.rooms.filter((r) => r.is_active) ?? [];
   const effectiveRoom = roomId || rooms[0]?.id || "";
-  const layout = useLoad(() => (effectiveRoom ? adm.get<{ seats: { category_key: string; is_active: boolean }[] }>(`/rooms/${effectiveRoom}/seats`).then((r) => r.data.seats) : Promise.resolve([])), `st-layout-${effectiveRoom}`);
-  const used = useMemo(() => [...new Set((layout.data ?? []).filter((s) => s.is_active).map((s) => s.category_key))], [layout.data]);
+  const layout = useLoad(
+    () =>
+      effectiveRoom
+        ? adm.get<{ seats: { category_key: string; is_active: boolean }[] }>(`/rooms/${effectiveRoom}/seats`).then((r) => r.data.seats)
+        : Promise.resolve([]),
+    `st-layout-${effectiveRoom}`,
+  );
+  const used = useMemo(
+    () => [...new Set((layout.data ?? []).filter((s) => s.is_active).map((s) => s.category_key))],
+    [layout.data],
+  );
 
   const lastDate = endDate || startDate;
   const dates = useMemo(() => {
@@ -172,7 +322,13 @@ function CreateShowtime({ cinemas, onClose, onCreated }: { cinemas: CinemaLite[]
     }
     return out;
   }, [startDate, lastDate]);
-  const rangeError = endDate && startDate && endDate < startDate ? "End date must be on or after the start date." : dates.length > MAX_DAYS ? `A range can cover at most ${MAX_DAYS} days.` : null;
+
+  const rangeError =
+    endDate && startDate && endDate < startDate
+      ? "End date must be on or after the start date."
+      : dates.length > MAX_DAYS
+      ? `A range can cover at most ${MAX_DAYS} days.`
+      : null;
 
   const addTime = () => {
     if (!timeInput || times.includes(timeInput) || times.length >= MAX_TIMES) return;
@@ -184,15 +340,24 @@ function CreateShowtime({ cinemas, onClose, onCreated }: { cinemas: CinemaLite[]
   async function create(e: React.FormEvent) {
     e.preventDefault();
     if (!cinema || rangeError || dates.length === 0 || times.length === 0) return;
-    const prices = used.map((k) => ({ category_key: k, price: Number(priceOverrides[k] ?? cats.data?.find((c) => c.key === k)?.default_price ?? 0) }));
-    // One draft per day and show time in the range. Days the server rejects (e.g. overlaps) are reported, not fatal.
+    const prices = used.map((k) => ({
+      category_key: k,
+      price: Number(priceOverrides[k] ?? cats.data?.find((c) => c.key === k)?.default_price ?? 0),
+    }));
+
     const r = await act.run(async () => {
       const created: string[] = [];
       const skipped: string[] = [];
       for (const day of dates) {
         for (const time of times) {
           try {
-            const res = await adm.post<Showtime>("/showtimes", { movie: movieId, room: effectiveRoom, starts_at: zonedToIso(`${day}T${time}`, cinema.timezone), sales_cutoff_minutes: Number(cutoff), prices });
+            const res = await adm.post<Showtime>("/showtimes", {
+              movie: movieId,
+              room: effectiveRoom,
+              starts_at: zonedToIso(`${day}T${time}`, cinema.timezone),
+              sales_cutoff_minutes: Number(cutoff),
+              prices,
+            });
             created.push(res.data.id);
           } catch (err) {
             if (!(err instanceof ApiError) || err.status === 403 || err.status === 429 || total === 1) throw err;
@@ -203,8 +368,11 @@ function CreateShowtime({ cinemas, onClose, onCreated }: { cinemas: CinemaLite[]
       if (created.length === 0) throw new Error("none created");
       return { created, skipped };
     }, undefined);
+
     if (r) {
-      if (r.skipped.length > 0) window.alert(`Created ${r.created.length} draft showtime(s). Skipped ${r.skipped.length}: ${r.skipped.join("; ")}`);
+      if (r.skipped.length > 0) {
+        window.alert(`Created ${r.created.length} draft showtime(s). Skipped ${r.skipped.length}: ${r.skipped.join("; ")}`);
+      }
       onCreated(r.created.length === 1 ? r.created[0] : null);
     }
   }
@@ -213,121 +381,384 @@ function CreateShowtime({ cinemas, onClose, onCreated }: { cinemas: CinemaLite[]
     <AdminModal
       open={true}
       onClose={onClose}
-      title="New Showtime"
-      subtitle="Schedule screening time, assign cinema room, and configure pricing"
+      title="Schedule Showtime"
+      subtitle="Select movie, hall allocation, start times, and category seat pricing"
       size="lg"
     >
-      <form onSubmit={create} noValidate className="grid gap-4" aria-label="New showtime">
+      <form onSubmit={create} noValidate className="space-y-5" aria-label="New showtime">
         <Feedback error={act.error} note={act.note} />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <SelectField id="n-movie" label="Movie (published only)" value={movieId} onChange={(e) => setMovieId(e.target.value)} error={act.fields.movie}>
-            <option value="">Choose…</option>
-            {movies.data?.map((m) => <option key={m.id} value={m.id}>{m.title} ({m.duration_min} min)</option>)}
-          </SelectField>
-          <SelectField id="n-cinema" label="Cinema" value={cinemaId} onChange={(e) => { setCinemaId(e.target.value); setRoomId(""); }}>
-            {cinemas.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </SelectField>
-          <SelectField id="n-room" label="Room" value={effectiveRoom} onChange={(e) => setRoomId(e.target.value)} error={act.fields.room}>
-            {rooms.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-          </SelectField>
-          <TextField id="n-start-date" label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} error={act.fields.starts_at} />
-          <TextField id="n-end-date" label="End date (optional)" type="date" min={startDate || undefined} value={endDate} onChange={(e) => setEndDate(e.target.value)} error={rangeError ?? undefined} hint="Leave empty for a single day" />
-          <div className="sm:col-span-2">
-            <div className="flex items-end gap-2">
-              <div className="min-w-0 flex-1">
-                <TextField id="n-time" label={`Show times (${cinema?.timezone ?? "local"})`} type="time" value={timeInput} onChange={(e) => setTimeInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTime(); } }} hint="Pick a time and press Add. Repeat for every screening of the day." />
-              </div>
-              <Button type="button" variant="secondary" onClick={addTime} disabled={!timeInput || times.includes(timeInput) || times.length >= MAX_TIMES} className="mb-6">Add time</Button>
+
+        <div className="rounded-2xl border border-line/60 bg-surface/40 p-5 space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              id="n-movie"
+              label="Movie Title (Published)"
+              value={movieId}
+              onChange={(e) => setMovieId(e.target.value)}
+              error={act.fields.movie}
+            >
+              <option value="">Select a title…</option>
+              {movies.data?.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.title} ({m.duration_min} min)
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              id="n-cinema"
+              label="Cinema Venue"
+              value={cinemaId}
+              onChange={(e) => {
+                setCinemaId(e.target.value);
+                setRoomId("");
+              }}
+            >
+              {cinemas.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </SelectField>
+
+            <SelectField
+              id="n-room"
+              label="Screening Hall"
+              value={effectiveRoom}
+              onChange={(e) => setRoomId(e.target.value)}
+              error={act.fields.room}
+            >
+              {rooms.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </SelectField>
+
+            <TextField
+              id="n-cut"
+              label="Sales Cutoff (Minutes before start)"
+              inputMode="numeric"
+              value={cutoff}
+              onChange={(e) => setCutoff(e.target.value)}
+              error={act.fields.sales_cutoff_minutes}
+            />
+
+            <TextField
+              id="n-start-date"
+              label="Start Date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              error={act.fields.starts_at}
+            />
+
+            <TextField
+              id="n-end-date"
+              label="End Date (Optional for recurring)"
+              type="date"
+              min={startDate || undefined}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              error={rangeError ?? undefined}
+              hint="Leave blank for single day screening"
+            />
+          </div>
+
+          {/* Show Times Picker */}
+          <div className="rounded-xl border border-line/60 bg-surface/60 p-4">
+            <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-2">
+              Screening Times ({cinema?.timezone ?? "Local Time"})
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={timeInput}
+                onChange={(e) => setTimeInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addTime();
+                  }
+                }}
+                className="h-10 rounded-xl border border-line/70 bg-background/90 px-3 text-sm outline-none focus:border-accent"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={addTime}
+                disabled={!timeInput || times.includes(timeInput) || times.length >= MAX_TIMES}
+                className="h-10 px-3 cursor-pointer"
+              >
+                <Plus className="size-3.5 mr-1" />
+                <span>Add Time</span>
+              </Button>
             </div>
-            {times.length > 0 ? (
-              <ul className="mt-2 flex flex-wrap gap-2" aria-label="Selected show times">
+
+            {times.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-2" aria-label="Selected show times">
                 {times.map((t) => (
-                  <li key={t} className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 py-1 pl-3 pr-1.5 text-sm font-semibold">
-                    {t}
-                    <button type="button" aria-label={`Remove ${t}`} onClick={() => setTimes((x) => x.filter((v) => v !== t))} className="grid size-5 cursor-pointer place-items-center rounded-full text-muted hover:bg-foreground/10 hover:text-foreground">✕</button>
+                  <li
+                    key={t}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 py-1 pl-3 pr-1.5 text-xs font-bold text-accent"
+                  >
+                    <span>{t}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${t}`}
+                      onClick={() => setTimes((x) => x.filter((v) => v !== t))}
+                      className="grid size-4 cursor-pointer place-items-center rounded-full text-accent hover:bg-accent/20"
+                    >
+                      ✕
+                    </button>
                   </li>
                 ))}
               </ul>
-            ) : null}
+            )}
           </div>
-          <TextField id="n-cut" label="Stop sales (minutes before start)" inputMode="numeric" value={cutoff} onChange={(e) => setCutoff(e.target.value)} error={act.fields.sales_cutoff_minutes} />
         </div>
-        <fieldset className="grid gap-3 sm:grid-cols-3">
-          <legend className="mb-1 text-sm font-semibold">Seat prices (KRW, whole won)</legend>
-          {used.map((k) => (
-            <TextField key={k} id={`price-${k}`} label={cats.data?.find((c) => c.key === k)?.name ?? k} inputMode="numeric"
-              value={priceOverrides[k] ?? String(cats.data?.find((c) => c.key === k)?.default_price ?? "")} onChange={(e) => setPriceOverrides((p) => ({ ...p, [k]: e.target.value.replace(/\D/g, "") }))} />
-          ))}
-          {used.length === 0 ? <p className="text-sm text-muted sm:col-span-3">This room has no seats yet. Define its seat layout first.</p> : null}
-          {act.fields.prices ? <p role="alert" className="text-sm text-red-500 sm:col-span-3">{act.fields.prices}</p> : null}
-        </fieldset>
-        <p className="text-xs text-muted">With an end date, one draft is created per day for every show time. The server blocks overlaps in the same room, including a turnaround buffer after the film.</p>
-        <div className="flex gap-3"><Button type="submit" disabled={act.busy || !movieId || !startDate || times.length === 0 || !!rangeError || used.length === 0}>{act.busy ? "Creating…" : total > 1 ? `Create ${total} drafts` : "Create draft"}</Button><Button type="button" variant="ghost" onClick={onClose}>Close</Button></div>
+
+        {/* Seat Price Tiers */}
+        <div className="rounded-2xl border border-line/60 bg-surface/40 p-5 space-y-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted">
+            Seat Category Pricing (KRW)
+          </h4>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {used.map((k) => (
+              <TextField
+                key={k}
+                id={`price-${k}`}
+                label={cats.data?.find((c) => c.key === k)?.name ?? k}
+                inputMode="numeric"
+                value={priceOverrides[k] ?? String(cats.data?.find((c) => c.key === k)?.default_price ?? "")}
+                onChange={(e) =>
+                  setPriceOverrides((p) => ({ ...p, [k]: e.target.value.replace(/\D/g, "") }))
+                }
+              />
+            ))}
+          </div>
+          {used.length === 0 && (
+            <p className="text-xs text-muted italic">This hall has no seats configured yet.</p>
+          )}
+          {act.fields.prices && (
+            <p role="alert" className="text-xs text-rose-500 font-medium">
+              {act.fields.prices}
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center gap-3 border-t border-line/60 pt-4">
+          <Button
+            type="submit"
+            disabled={act.busy || !movieId || !startDate || times.length === 0 || !!rangeError || used.length === 0}
+            className="shadow-sm"
+          >
+            {act.busy ? "Creating…" : total > 1 ? `Create ${total} Showtimes` : "Create Draft"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onClose} className="cursor-pointer">
+            Close
+          </Button>
+        </div>
       </form>
     </AdminModal>
   );
 }
 
-function ShowtimeDetail({ id, onChanged, onClose }: { id: string; onChanged: () => void; onClose: () => void }) {
+function ShowtimeDetail({
+  id,
+  onChanged,
+  onClose,
+}: {
+  id: string;
+  onChanged: () => void;
+  onClose: () => void;
+}) {
   const { can } = useAuth();
   const act = useAction();
   const d = useLoad(() => adm.get<Showtime>(`/showtimes/${id}`).then((r) => r.data), `st-${id}`);
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [reschedule, setReschedule] = useState("");
 
-  const refresh = () => { d.reload(); onChanged(); };
+  const refresh = () => {
+    d.reload();
+    onChanged();
+  };
 
   return (
     <AdminModal
       open={true}
       onClose={onClose}
       title="Showtime Details"
-      subtitle="Seat availability, category pricing, rescheduling, and sales status"
+      subtitle="Seat inventory, ticket price adjustments, schedule changes, and sales status"
       size="lg"
     >
       <Section loading={d.loading} error={d.error} data={d.data}>
         {(s) => (
-          <div className="grid gap-5">
-            <div className="flex flex-wrap items-center gap-3">
-              <h3 className="display text-3xl">{s.movie.title}</h3>
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/40 pb-4">
+              <div>
+                <h3 className="display text-2xl font-bold text-foreground">{s.movie.title}</h3>
+                <p className="text-xs text-muted mt-0.5">
+                  {s.cinema.name} · {s.room.name} · {when(s.starts_at)}
+                </p>
+              </div>
               <Pill tone={tone[s.status]}>{s.status.replace("_", " ")}</Pill>
             </div>
-            <p className="text-muted">{s.cinema.name} · {s.room.name} · {when(s.starts_at)}</p>
-            {s.seat_counts ? (
-              <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
-                {Object.entries(s.seat_counts).map(([k, v]) => <div key={k} className="rounded-control border border-line p-3"><dt className="capitalize text-muted">{k}</dt><dd className="display text-2xl">{v}</dd></div>)}
-              </dl>
-            ) : null}
+
+            {/* Seat Telemetry Grid */}
+            {s.seat_counts && (
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-5 text-center">
+                <div className="rounded-xl border border-line/60 bg-surface/50 p-3">
+                  <span className="text-[10px] font-bold uppercase text-muted">Total</span>
+                  <p className="text-xl font-extrabold text-foreground mt-1">{s.seat_counts.total}</p>
+                </div>
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
+                  <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Available</span>
+                  <p className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-1">{s.seat_counts.available}</p>
+                </div>
+                <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-3">
+                  <span className="text-[10px] font-bold uppercase text-sky-600 dark:text-sky-400">Sold</span>
+                  <p className="text-xl font-extrabold text-sky-600 dark:text-sky-400 mt-1">{s.seat_counts.sold}</p>
+                </div>
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+                  <span className="text-[10px] font-bold uppercase text-amber-600 dark:text-amber-400">Held</span>
+                  <p className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-1">{s.seat_counts.held}</p>
+                </div>
+                <div className="rounded-xl border border-line/60 bg-surface/50 p-3">
+                  <span className="text-[10px] font-bold uppercase text-muted">Unavailable</span>
+                  <p className="text-xl font-extrabold text-muted mt-1">{s.seat_counts.unavailable}</p>
+                </div>
+              </div>
+            )}
+
             <Feedback error={act.error} note={act.note} />
 
-            {can("prices.manage") && (s.status === "draft" || s.status === "on_sale") ? (
-              <form className="grid gap-3 sm:grid-cols-3" aria-label="Seat prices" onSubmit={async (e) => {
-                e.preventDefault();
-                if (await act.run(() => adm.put(`/showtimes/${id}/prices`, { prices: s.prices.map((p) => ({ category_key: p.category_key, price: Number(prices[p.category_key] ?? p.price) })) }), "Prices updated.")) refresh();
-              }}>
-                {s.prices.map((p) => <TextField key={p.category_key} id={`ep-${p.category_key}`} label={`${p.category_name} (KRW)`} inputMode="numeric" value={prices[p.category_key] ?? String(p.price)} onChange={(e) => setPrices((x) => ({ ...x, [p.category_key]: e.target.value.replace(/\D/g, "") }))} />)}
-                <div className="sm:col-span-3"><Button type="submit" size="sm" disabled={act.busy}>Save prices</Button> <span className="text-xs text-muted">Not possible once bookings exist.</span></div>
+            {/* Price Adjustments */}
+            {can("prices.manage") && (s.status === "draft" || s.status === "on_sale") && (
+              <form
+                className="rounded-2xl border border-line/60 bg-surface/40 p-4 space-y-3"
+                aria-label="Seat prices"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (
+                    await act.run(
+                      () =>
+                        adm.put(`/showtimes/${id}/prices`, {
+                          prices: s.prices.map((p) => ({
+                            category_key: p.category_key,
+                            price: Number(prices[p.category_key] ?? p.price),
+                          })),
+                        }),
+                      "Prices updated.",
+                    )
+                  ) {
+                    refresh();
+                  }
+                }}
+              >
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted">Update Category Prices (KRW)</h4>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {s.prices.map((p) => (
+                    <TextField
+                      key={p.category_key}
+                      id={`ep-${p.category_key}`}
+                      label={p.category_name}
+                      inputMode="numeric"
+                      value={prices[p.category_key] ?? String(p.price)}
+                      onChange={(e) =>
+                        setPrices((x) => ({
+                          ...x,
+                          [p.category_key]: e.target.value.replace(/\D/g, ""),
+                        }))
+                      }
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 pt-2">
+                  <Button type="submit" size="sm" disabled={act.busy}>
+                    Save Prices
+                  </Button>
+                  <span className="text-[11px] text-muted">Note: Price edits are locked once customer reservations exist.</span>
+                </div>
               </form>
-            ) : null}
+            )}
 
-            {can("showtimes.manage") && (s.status === "draft" || s.status === "on_sale") ? (
-              <form className="flex flex-wrap items-end gap-3" aria-label="Reschedule" onSubmit={async (e) => {
-                e.preventDefault();
-                if (reschedule && (await act.run(() => adm.patch(`/showtimes/${id}`, { starts_at: zonedToIso(reschedule, s.cinema.timezone) }), "Rescheduled."))) refresh();
-              }}>
-                <div className="min-w-60"><TextField id="resched" label={`Move to (${s.cinema.timezone})`} type="datetime-local" value={reschedule} onChange={(e) => setReschedule(e.target.value)} error={act.fields.starts_at} /></div>
-                <Button type="submit" size="sm" variant="secondary" disabled={act.busy || !reschedule}>Reschedule</Button>
+            {/* Reschedule Screening */}
+            {can("showtimes.manage") && (s.status === "draft" || s.status === "on_sale") && (
+              <form
+                className="rounded-2xl border border-line/60 bg-surface/40 p-4 space-y-3"
+                aria-label="Reschedule"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (
+                    reschedule &&
+                    (await act.run(
+                      () =>
+                        adm.patch(`/showtimes/${id}`, {
+                          starts_at: zonedToIso(reschedule, s.cinema.timezone),
+                        }),
+                      "Rescheduled.",
+                    ))
+                  ) {
+                    refresh();
+                  }
+                }}
+              >
+                <h4 className="text-xs font-bold uppercase tracking-wider text-muted">Reschedule Screening</h4>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="min-w-60 flex-1">
+                    <TextField
+                      id="resched"
+                      label={`New Starting Time (${s.cinema.timezone})`}
+                      type="datetime-local"
+                      value={reschedule}
+                      onChange={(e) => setReschedule(e.target.value)}
+                      error={act.fields.starts_at}
+                    />
+                  </div>
+                  <Button type="submit" size="sm" variant="secondary" disabled={act.busy || !reschedule} className="h-11">
+                    Update Showtime
+                  </Button>
+                </div>
               </form>
-            ) : null}
+            )}
 
-            {can("showtimes.manage") ? (
-              <div className="flex flex-wrap gap-3">
-                {s.status === "draft" ? <Button disabled={act.busy} onClick={async () => { if (await act.run(() => adm.post(`/showtimes/${id}/publish`), "Now on sale.")) refresh(); }}>Put on sale</Button> : null}
-                {s.status === "draft" || s.status === "on_sale" ? <Button variant="secondary" disabled={act.busy} onClick={async () => { if (window.confirm("Cancel this showtime? This cannot be undone.") && (await act.run(() => adm.post(`/showtimes/${id}/cancel`), "Cancelled."))) refresh(); }}>Cancel showtime</Button> : null}
-                <Button variant="ghost" onClick={onClose}>Close</Button>
+            {/* Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 pt-4">
+              <div className="flex items-center gap-2.5">
+                {can("showtimes.manage") && s.status === "draft" && (
+                  <Button
+                    disabled={act.busy}
+                    onClick={async () => {
+                      if (await act.run(() => adm.post(`/showtimes/${id}/publish`), "Now on sale.")) refresh();
+                    }}
+                    className="shadow-sm"
+                  >
+                    Put On Sale
+                  </Button>
+                )}
+                {can("showtimes.manage") && (s.status === "draft" || s.status === "on_sale") && (
+                  <Button
+                    variant="secondary"
+                    disabled={act.busy}
+                    onClick={async () => {
+                      if (
+                        window.confirm("Cancel this showtime? This cannot be undone.") &&
+                        (await act.run(() => adm.post(`/showtimes/${id}/cancel`), "Cancelled."))
+                      ) {
+                        refresh();
+                      }
+                    }}
+                    className="text-rose-500 hover:bg-rose-500/10"
+                  >
+                    Cancel Showtime
+                  </Button>
+                )}
               </div>
-            ) : <Button variant="ghost" onClick={onClose}>Close</Button>}
+              <Button variant="ghost" onClick={onClose} className="cursor-pointer">
+                Close
+              </Button>
+            </div>
           </div>
         )}
       </Section>

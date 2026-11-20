@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
-import { AlertCircle, CheckCircle2, ChevronRight, Search, Sparkles, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft, ChevronRight, Sparkles, X } from "lucide-react";
 import { ApiError } from "@/lib/api/client";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
-import { FormMessage, inputClass } from "@/components/auth/form-kit";
+import { FormMessage } from "@/components/auth/form-kit";
 import { useDialogBehavior, useScrollLock } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
@@ -41,24 +41,26 @@ export function PageTitle({
   hint,
   action,
   eyebrow,
+  icon: Icon,
   breadcrumbs,
 }: {
   title: string;
   hint?: string;
   action?: ReactNode;
   eyebrow?: string;
+  icon?: React.ComponentType<{ className?: string }>;
   breadcrumbs?: { label: string; href?: string }[];
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 border-b border-line/60 pb-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="relative mb-8 flex flex-col gap-4 border-b border-line/60 pb-6 sm:flex-row sm:items-end sm:justify-between">
       <div>
         {breadcrumbs && breadcrumbs.length > 0 ? (
           <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-1.5 text-xs text-muted">
             {breadcrumbs.map((b, i) => (
               <span key={b.label} className="flex items-center gap-1.5">
-                {i > 0 && <ChevronRight className="size-3 text-muted/50" />}
+                {i > 0 && <ChevronRight className="size-3 text-muted/40" />}
                 {b.href ? (
-                  <a href={b.href} className="hover:text-foreground">
+                  <a href={b.href} className="transition hover:text-foreground">
                     {b.label}
                   </a>
                 ) : (
@@ -68,12 +70,34 @@ export function PageTitle({
             ))}
           </nav>
         ) : eyebrow ? (
-          <p className="eyebrow mb-1">{eyebrow}</p>
+          <div className="mb-2 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-accent/25 bg-accent/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-accent">
+              <Sparkles className="size-2.5" />
+              <span>{eyebrow}</span>
+            </span>
+          </div>
         ) : null}
-        <h1 className="display text-3xl tracking-tight sm:text-4xl text-foreground">{title}</h1>
-        {hint ? <p className="mt-1 text-sm text-muted">{hint}</p> : null}
+
+        <div className="flex items-center gap-3">
+          {Icon && (
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent border border-accent/20 shadow-sm">
+              <Icon className="size-5" />
+            </div>
+          )}
+          <div>
+            <h1 className="display text-3xl font-extrabold tracking-tight sm:text-4xl text-foreground">
+              {title}
+            </h1>
+            {hint ? <p className="mt-1 text-sm text-muted max-w-3xl leading-relaxed">{hint}</p> : null}
+          </div>
+        </div>
       </div>
-      {action ? <div className="flex flex-wrap items-center gap-2.5 sm:self-end">{action}</div> : null}
+
+      {action ? (
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0 sm:self-end">
+          {action}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -94,18 +118,20 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-card border border-line/70 bg-elevated/70 shadow-sm backdrop-blur-sm p-5 sm:p-6 transition-all", className)}>
+    <section className={cn("group relative rounded-2xl border border-line/70 bg-elevated/70 shadow-sm backdrop-blur-md p-5 sm:p-6 transition-all duration-200 hover:border-line hover:shadow-md", className)}>
+      {/* Top subtle highlight glow */}
+      <div className="pointer-events-none absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       {title || action ? (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line/40 pb-3">
-          <div className="flex items-center gap-2.5">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-line/40 pb-4">
+          <div className="flex items-center gap-3">
             {Icon && (
-              <div className="flex size-7 items-center justify-center rounded-md bg-accent/10 text-accent">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent border border-accent/20">
                 <Icon className="size-4" />
               </div>
             )}
             <div>
-              {title && <h2 className="display text-xl text-foreground">{title}</h2>}
-              {subtitle && <p className="text-xs text-muted">{subtitle}</p>}
+              {title && <h2 className="display text-lg font-bold text-foreground tracking-tight">{title}</h2>}
+              {subtitle && <p className="text-xs text-muted mt-0.5">{subtitle}</p>}
             </div>
           </div>
           {action}
@@ -156,7 +182,7 @@ export function AdminModal({
   return (
     <div
       style={{ zIndex }}
-      className="fixed inset-0 flex items-center justify-center p-3 sm:p-6 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150"
+      className="fixed inset-0 flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md animate-in fade-in duration-150"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -170,8 +196,11 @@ export function AdminModal({
           className,
         )}
       >
+        {/* Top subtle orange highlight glow */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-accent/20 via-accent to-accent/20" />
+
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-line/60 px-6 py-4.5 bg-surface/50">
+        <div className="flex items-center justify-between border-b border-line/60 px-6 py-4.5 bg-surface/60">
           <div>
             <h2 className="display text-2xl text-foreground font-bold tracking-tight">{title}</h2>
             {subtitle && <p className="text-xs text-muted mt-0.5">{subtitle}</p>}
@@ -187,7 +216,7 @@ export function AdminModal({
         </div>
 
         {/* Modal Body (Scrollable) */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 scrollbar-none">
+        <div className="flex-1 overflow-y-auto px-6 py-5 [scrollbar-width:thin]">
           {children}
         </div>
       </div>
@@ -201,29 +230,31 @@ export function Pill({
   dot = true,
 }: {
   children: ReactNode;
-  tone?: "good" | "warn" | "bad" | "neutral" | "info" | "purple";
+  tone?: "good" | "warn" | "bad" | "neutral" | "info" | "purple" | "accent";
   dot?: boolean;
 }) {
   const styles = {
-    good: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    warn: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-    bad: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
-    neutral: "bg-foreground/5 text-muted border-line/60",
-    info: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
-    purple: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    good: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    warn: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    bad: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
+    neutral: "bg-foreground/5 text-muted border-line/70",
+    info: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30",
+    purple: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30",
+    accent: "bg-accent/10 text-accent border-accent/30",
   }[tone];
 
   const dotColor = {
-    good: "bg-emerald-500",
-    warn: "bg-amber-500",
-    bad: "bg-rose-500",
+    good: "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]",
+    warn: "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]",
+    bad: "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]",
     neutral: "bg-muted",
-    info: "bg-sky-500",
-    purple: "bg-purple-500",
+    info: "bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.5)]",
+    purple: "bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]",
+    accent: "bg-accent shadow-[0_0_8px_rgba(233,111,37,0.5)]",
   }[tone];
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide", styles)}>
+    <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold tracking-wide capitalize", styles)}>
       {dot && <span className={cn("size-1.5 rounded-full shrink-0", dotColor)} aria-hidden />}
       <span>{children}</span>
     </span>
@@ -256,12 +287,12 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="overflow-x-auto rounded-card border border-line/70 bg-elevated/40 shadow-sm">
+    <div className="overflow-x-auto rounded-2xl border border-line/70 bg-elevated/40 shadow-sm backdrop-blur-sm [scrollbar-width:thin]">
       <table className="w-full text-left text-sm">
-        <thead className="border-b border-line/70 bg-surface/80 text-[11px] uppercase tracking-wider text-muted">
+        <thead className="border-b border-line/70 bg-surface/85 text-[11px] font-semibold uppercase tracking-wider text-muted backdrop-blur-sm">
           <tr>
             {columns.map((c) => (
-              <th key={c.key} scope="col" className={cn("px-4 py-3 font-semibold", c.className)}>
+              <th key={c.key} scope="col" className={cn("px-4 py-3.5", c.className)}>
                 {c.label}
               </th>
             ))}
@@ -271,7 +302,7 @@ export function DataTable<T>({
           {rows.map((r) => (
             <tr
               key={rowKey(r)}
-              className={cn("transition-colors duration-150", onRowClick && "cursor-pointer hover:bg-surface/70")}
+              className={cn("group transition-colors duration-150", onRowClick ? "cursor-pointer hover:bg-surface/80 dark:hover:bg-surface/50" : "hover:bg-surface/40")}
               onClick={onRowClick ? () => onRowClick(r) : undefined}
             >
               {columns.map((c) => (
@@ -298,7 +329,7 @@ export function Section<T>({
   data: T | undefined;
   children: (d: T) => ReactNode;
 }) {
-  if (loading) return <Skeleton className="h-48 rounded-card border border-line/40" />;
+  if (loading) return <Skeleton className="h-48 rounded-2xl border border-line/40" />;
   if (error || data === undefined) return <FormMessage>{error ?? "Could not load."}</FormMessage>;
   return <>{children(data)}</>;
 }
@@ -306,15 +337,31 @@ export function Section<T>({
 export function Pager({ page, last, onPage }: { page: number; last: number; onPage: (p: number) => void }) {
   if (last <= 1) return null;
   return (
-    <nav className="mt-4 flex items-center justify-between border-t border-line/40 pt-3 text-sm" aria-label="Pagination">
-      <Button size="sm" variant="secondary" disabled={page <= 1} onClick={() => onPage(page - 1)}>
-        Previous
+    <nav className="mt-5 flex items-center justify-between border-t border-line/40 pt-4 text-sm" aria-label="Pagination">
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={page <= 1}
+        onClick={() => onPage(page - 1)}
+        className="flex items-center gap-1.5"
+      >
+        <ChevronLeft className="size-3.5" />
+        <span>Previous</span>
       </Button>
-      <span className="text-xs text-muted font-medium">
-        Page <span className="text-foreground font-semibold">{page}</span> of <span className="text-foreground font-semibold">{last}</span>
-      </span>
-      <Button size="sm" variant="secondary" disabled={page >= last} onClick={() => onPage(page + 1)}>
-        Next
+      <div className="flex items-center gap-2">
+        <span className="rounded-full border border-line/60 bg-surface/80 px-3 py-1 text-xs text-muted font-medium">
+          Page <strong className="text-foreground font-bold">{page}</strong> of <strong className="text-foreground font-bold">{last}</strong>
+        </span>
+      </div>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={page >= last}
+        onClick={() => onPage(page + 1)}
+        className="flex items-center gap-1.5"
+      >
+        <span>Next</span>
+        <ChevronRight className="size-3.5" />
       </Button>
     </nav>
   );
@@ -339,35 +386,45 @@ export function StatCard({
   action?: ReactNode;
 }) {
   const toneBorder = {
-    good: "border-emerald-500/40 bg-emerald-500/[0.03]",
-    warn: "border-amber-500/50 bg-amber-500/[0.04]",
-    bad: "border-rose-500/50 bg-rose-500/[0.04]",
-    accent: "border-accent/50 bg-accent/[0.04]",
-    neutral: "border-line/70 bg-elevated/70",
+    good: "border-emerald-500/30 bg-emerald-500/[0.03] hover:border-emerald-500/50",
+    warn: "border-amber-500/30 bg-amber-500/[0.04] hover:border-amber-500/50",
+    bad: "border-rose-500/30 bg-rose-500/[0.04] hover:border-rose-500/50",
+    accent: "border-accent/40 bg-accent/[0.04] hover:border-accent/60",
+    neutral: "border-line/70 bg-elevated/70 hover:border-line",
   }[tone ?? "neutral"];
 
   const iconBg = {
-    good: "bg-emerald-500/15 text-emerald-500",
-    warn: "bg-amber-500/15 text-amber-500",
-    bad: "bg-rose-500/15 text-rose-500",
-    accent: "bg-accent/15 text-accent",
-    neutral: "bg-foreground/5 text-muted",
+    good: "bg-emerald-500/15 text-emerald-500 border border-emerald-500/20",
+    warn: "bg-amber-500/15 text-amber-500 border border-amber-500/20",
+    bad: "bg-rose-500/15 text-rose-500 border border-rose-500/20",
+    accent: "bg-accent/15 text-accent border border-accent/25",
+    neutral: "bg-foreground/5 text-muted border border-line/50",
   }[tone ?? "neutral"];
 
   return (
-    <div className={cn("group relative flex flex-col justify-between rounded-card border p-4 sm:p-5 shadow-sm transition hover:shadow-md", toneBorder, wide && "col-span-2 md:col-span-1")}>
+    <div
+      className={cn(
+        "group relative flex flex-col justify-between rounded-2xl border p-5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:shadow-md",
+        toneBorder,
+        wide && "col-span-2 md:col-span-1",
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <dt className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</dt>
         {Icon && (
-          <div className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg transition", iconBg)}>
-            <Icon className="size-4" />
+          <div className={cn("flex size-9 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105", iconBg)}>
+            <Icon className="size-4.5" />
           </div>
         )}
       </div>
-      <dd className="display mt-3 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{value}</dd>
+
+      <dd className="display mt-3 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl tabular-nums">
+        {value}
+      </dd>
+
       {(subvalue || action) && (
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-line/30 pt-2 text-xs">
-          {subvalue && <span className="text-muted">{subvalue}</span>}
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-line/30 pt-2.5 text-xs">
+          {subvalue && <span className="text-muted leading-tight">{subvalue}</span>}
           {action}
         </div>
       )}
@@ -393,9 +450,9 @@ function Wrap({ id, label, error, hint, children }: BaseProps & { children: Reac
       {children}
       {hint && !error ? <p className="mt-1 text-xs text-muted">{hint}</p> : null}
       {error ? (
-        <p role="alert" className="mt-1 text-xs font-medium text-rose-500 flex items-center gap-1">
+        <p role="alert" className="mt-1 text-xs font-medium text-rose-500 flex items-center gap-1 animate-in fade-in">
           <AlertCircle className="size-3 shrink-0" />
-          {error}
+          <span>{error}</span>
         </p>
       ) : null}
     </div>
@@ -409,8 +466,8 @@ export function TextField({ label, error, hint, id, ...rest }: BaseProps & Omit<
         id={id}
         aria-invalid={!!error}
         className={cn(
-          "h-11 w-full rounded-control border bg-background px-3.5 text-sm outline-none transition placeholder:text-muted/60 focus:border-accent focus:ring-1 focus:ring-accent",
-          error ? "border-rose-500 ring-rose-500/20" : "border-line/70 hover:border-line",
+          "h-11 w-full rounded-xl border bg-background/80 px-3.5 text-sm outline-none transition placeholder:text-muted/60 focus:border-accent focus:ring-2 focus:ring-accent/20",
+          error ? "border-rose-500 ring-2 ring-rose-500/20" : "border-line/70 hover:border-line",
         )}
         {...rest}
       />
@@ -426,8 +483,8 @@ export function TextArea({ label, error, hint, id, ...rest }: BaseProps & Omit<T
         aria-invalid={!!error}
         rows={4}
         className={cn(
-          "w-full rounded-control border bg-background p-3 text-sm outline-none transition placeholder:text-muted/60 focus:border-accent focus:ring-1 focus:ring-accent",
-          error ? "border-rose-500 ring-rose-500/20" : "border-line/70 hover:border-line",
+          "w-full rounded-xl border bg-background/80 p-3.5 text-sm outline-none transition placeholder:text-muted/60 focus:border-accent focus:ring-2 focus:ring-accent/20 [scrollbar-width:thin]",
+          error ? "border-rose-500 ring-2 ring-rose-500/20" : "border-line/70 hover:border-line",
         )}
         {...rest}
       />
@@ -438,25 +495,35 @@ export function TextArea({ label, error, hint, id, ...rest }: BaseProps & Omit<T
 export function SelectField({ label, error, hint, id, children, ...rest }: BaseProps & Omit<SelectHTMLAttributes<HTMLSelectElement>, "id">) {
   return (
     <Wrap id={id} label={label} error={error} hint={hint}>
-      <select
-        id={id}
-        aria-invalid={!!error}
-        className={cn(
-          "h-11 w-full rounded-control border bg-background px-3 text-sm outline-none transition focus:border-accent focus:ring-1 focus:ring-accent",
-          error ? "border-rose-500 ring-rose-500/20" : "border-line/70 hover:border-line",
-        )}
-        {...rest}
-      >
-        {children}
-      </select>
+      <div className="relative">
+        <select
+          id={id}
+          aria-invalid={!!error}
+          className={cn(
+            "h-11 w-full appearance-none rounded-xl border bg-background/80 px-3.5 pr-9 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20 cursor-pointer",
+            error ? "border-rose-500 ring-2 ring-rose-500/20" : "border-line/70 hover:border-line",
+          )}
+          {...rest}
+        >
+          {children}
+        </select>
+        <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted">
+          <ChevronRight className="size-4 rotate-90" />
+        </div>
+      </div>
     </Wrap>
   );
 }
 
 export function CheckField({ label, id, ...rest }: { label: string; id: string } & Omit<InputHTMLAttributes<HTMLInputElement>, "id" | "type">) {
   return (
-    <label htmlFor={id} className="flex cursor-pointer items-center gap-2.5 text-sm select-none">
-      <input id={id} type="checkbox" className="size-4 rounded border-line accent-[var(--accent)] transition" {...rest} />
+    <label htmlFor={id} className="flex cursor-pointer items-center gap-2.5 text-sm select-none py-1">
+      <input
+        id={id}
+        type="checkbox"
+        className="size-4 rounded-md border-line/80 text-accent accent-[var(--accent)] transition focus:ring-accent cursor-pointer"
+        {...rest}
+      />
       <span className="font-medium text-foreground">{label}</span>
     </label>
   );
@@ -491,7 +558,7 @@ export function useAction() {
   const [fields, setFields] = useState<Record<string, string>>({});
   const [note, setNote] = useState<string | null>(null);
 
-  async function run<T>(fn: () => Promise<T>, success?: string, flat = false): Promise<T | undefined> {
+  async function run<T>(fn: () => Promise<T>, success?: string): Promise<T | undefined> {
     setBusy(true);
     setError(null);
     setFields({});
@@ -519,8 +586,8 @@ export function Feedback({ error, note }: { error: string | null; note: string |
     <>
       {error ? <FormMessage>{error}</FormMessage> : null}
       {note ? (
-        <div role="status" className="flex items-center gap-2 rounded-control border border-accent/40 bg-accent/10 p-3 text-sm text-accent-text font-medium">
-          <CheckCircle2 className="size-4 shrink-0 text-accent" />
+        <div role="status" className="flex items-center gap-2.5 rounded-xl border border-accent/40 bg-accent/10 p-3.5 text-sm text-accent-text font-medium shadow-sm animate-in fade-in">
+          <CheckCircle2 className="size-4.5 shrink-0 text-accent" />
           <span>{note}</span>
         </div>
       ) : null}

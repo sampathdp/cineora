@@ -1,42 +1,54 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import jsQR from "jsqr";
-import { Camera, CameraOff, CheckCircle2, XCircle } from "lucide-react";
+import QRCode from "qrcode";
+import { Camera, CameraOff, CheckCircle2, Printer, QrCode, ScanLine, Smartphone, XCircle } from "lucide-react";
 import { adminApi, type ScanResult } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
 import { formatTime, zonedParts } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
-import { FormMessage, inputClass } from "@/components/auth/form-kit";
-import { PageTitle, Pill } from "./kit";
+import { FormMessage } from "@/components/auth/form-kit";
+import { PageTitle } from "./kit";
 import { cn } from "@/lib/utils";
+import { useQrCamera } from "./use-qr-camera";
+import { PrinterControl, usePrinter } from "./use-printer";
+
+/** A 26-character ULID is a ticket reference (printed slips); anything else is a signed QR payload. */
+export const scanInput = (v: string) => (/^[0-9A-Za-z]{26}$/.test(v) ? { reference: v } : { code: v });
 
 const TITLE: Record<ScanResult["result"], string> = {
   valid: "VALID: ADMIT ONE",
   already_used: "ALREADY USED",
-  cancelled: "CANCELLED",
-  refunded: "REFUNDED",
+  cancelled: "CANCELLED TICKET",
+  refunded: "REFUNDED TICKET",
   wrong_showtime: "WRONG SHOWTIME / NOT OPEN",
-  invalid: "NOT VALID",
-  void: "NOT VALID (ON HOLD)",
+  invalid: "INVALID TICKET CODE",
+  void: "ON HOLD / VOID",
 };
 
-/**
- * Door scanner. The camera is only requested when the checker presses "Start camera". Manual entry of the ticket
- * reference works without any camera. Every decision is made by the server; this component only displays it.
- */
 export function TicketScanner() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [manual, setManual] = useState("");
   const [recent, setRecent] = useState<{ outcome: string; seat: string | null; at: string | null }[]>([]);
-  const [camera, setCamera] = useState<"off" | "starting" | "on" | "denied">("off");
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const lastRef = useRef<{ code: string; at: number }>({ code: "", at: 0 });
   const busyRef = useRef(false);
+  const printer = usePrinter();
+  const [autoPrint, setAutoPrint] = useState(false);
+  const autoPrintRef = useRef(autoPrint);
+  useEffect(() => {
+    autoPrintRef.current = autoPrint;
+  }, [autoPrint]);
+  const printRef = useRef(printer.print);
+  useEffect(() => {
+    printRef.current = printer.print;
+  }, [printer.print]);
+
+  /** Every result, whether from this device or the paired phone, lands here. */
+  const show = useCallback((r: ScanResult) => {
+    setResult(r);
+    if (r.result === "valid" && r.ticket && autoPrintRef.current) void printRef.current(r.ticket);
+  }, []);
 
   const loadRecent = useCallback(() => {
     adminApi.recentScans().then(setRecent).catch(() => undefined);
@@ -50,84 +62,105 @@ export function TicketScanner() {
       setBusy(true);
       setError(null);
       try {
-        setResult(await adminApi.validateTicket(input));
+        show(await adminApi.validateTicket(input));
         loadRecent();
       } catch (e) {
         setResult(null);
-        setError(e instanceof ApiError ? (e.status === 429 ? "Scanning too fast. Wait a moment." : e.message) : "Could not reach the server.");
+        setError(
+          e instanceof ApiError
+            ? e.status === 429
+              ? "Scanning too fast. Please wait a moment."
+              : e.message
+            : "Could not reach the server.",
+        );
       } finally {
         busyRef.current = false;
         setBusy(false);
       }
     },
-    [loadRecent],
+    [loadRecent, show],
   );
 
-  const stopCamera = useCallback(() => {
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
-    setCamera("off");
-  }, []);
-  useEffect(() => stopCamera, [stopCamera]);
+  const { camera, start: startCamera, stop: stopCamera, videoRef, canvasRef } = useQrCamera((code) => void validate(scanInput(code)));
 
-  async function startCamera() {
-    setCamera("starting");
+  // --- Paired phone camera ---
+  const [pair, setPair] = useState<{ token: string; url: string; qr: string } | null>(null);
+  const [phoneOnline, setPhoneOnline] = useState(false);
+  const [pairError, setPairError] = useState<string | null>(null);
+  const seqRef = useRef(0);
+
+  async function connectPhone() {
+    setPairError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
-      streamRef.current = stream;
-      const video = videoRef.current;
-      if (!video) return stopCamera();
-      video.srcObject = stream;
-      await video.play();
-      setCamera("on");
-    } catch {
-      setCamera("denied");
+      const { token } = await adminApi.createScannerPair();
+      const url = `${window.location.origin}/admin/scan-remote/?t=${encodeURIComponent(token)}`;
+      const qr = await QRCode.toDataURL(url, { margin: 1, width: 280 });
+      seqRef.current = 0;
+      setPair({ token, url, qr });
+    } catch (e) {
+      setPairError(e instanceof ApiError ? e.message : "Could not create a phone link.");
     }
   }
 
-  // Decode a frame a few times per second while the camera is on.
+  function disconnectPhone() {
+    if (pair) void adminApi.endScannerPair(pair.token).catch(() => undefined);
+    setPair(null);
+    setPhoneOnline(false);
+  }
+
   useEffect(() => {
-    if (camera !== "on") return;
-    const timer = setInterval(() => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!video || !canvas || video.videoWidth === 0) return;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
-      ctx.drawImage(video, 0, 0);
-      const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const hit = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
-      if (hit?.data && !(hit.data === lastRef.current.code && Date.now() - lastRef.current.at < 4000)) {
-        lastRef.current = { code: hit.data, at: Date.now() };
-        void validate({ code: hit.data });
+    if (!pair) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const { connected, events } = await adminApi.scannerPairEvents(pair.token, seqRef.current);
+        if (!alive) return;
+        setPhoneOnline(connected);
+        if (events.length) {
+          seqRef.current = events[events.length - 1].seq;
+          show(events[events.length - 1].result);
+          setError(null);
+          loadRecent();
+        }
+      } catch (e) {
+        if (alive && e instanceof ApiError && e.status === 404) {
+          setPair(null);
+          setPhoneOnline(false);
+          setPairError("Phone link expired. Connect again.");
+        }
       }
-    }, 250);
-    return () => clearInterval(timer);
-  }, [camera, validate]);
+    };
+    const timer = setInterval(poll, 1500);
+    void poll();
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [pair, show, loadRecent]);
 
   function submitManual(e: React.FormEvent) {
     e.preventDefault();
     const v = manual.trim();
     if (!v) return;
-    // A 26-character ULID is a printed ticket reference; anything else is treated as raw QR content.
-    void validate(/^[0-9A-Za-z]{26}$/.test(v) ? { reference: v } : { code: v });
+    void validate(scanInput(v));
     setManual("");
   }
 
   const ok = result?.result === "valid";
+
   return (
-    <section>
+    <section className="space-y-6">
       <PageTitle
-        title="Ticket Validator & Door Scanner"
-        eyebrow="Admissions & Door Gate"
-        hint="Scan the QR code on the customer's phone or physical ticket slip. Every scan decision is verified cryptographically by the server."
+        title="Door Scanner & Ticket Admissions"
+        eyebrow="Admissions Gate"
+        icon={ScanLine}
+        hint="Scan ticket QR codes via device camera or type ticket references for instant validation."
       />
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_22rem]">
-        <div className="grid gap-4">
-          <div className="relative overflow-hidden rounded-2xl border border-line/80 bg-black shadow-lg">
+      <div className="grid gap-6 xl:grid-cols-[1fr_22rem]">
+        {/* Left Column: Camera Viewport & Manual Code Input */}
+        <div className="space-y-4">
+          <div className="relative overflow-hidden rounded-3xl border border-line/80 bg-black shadow-xl">
             <video
               ref={videoRef}
               playsInline
@@ -135,82 +168,255 @@ export function TicketScanner() {
               className={cn("aspect-video w-full object-cover", camera !== "on" && "hidden")}
               aria-label="Camera preview"
             />
-            {/* Viewfinder overlay reticle when camera is active */}
+
+            {/* Viewfinder Reticle Overlay */}
             {camera === "on" && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
-                <div className="relative size-48 sm:size-56 rounded-2xl border-2 border-accent/70 shadow-[0_0_15px_rgba(233,111,37,0.3)]">
-                  <div className="absolute -top-1 -left-1 size-4 border-t-2 border-l-2 border-accent" />
-                  <div className="absolute -top-1 -right-1 size-4 border-t-2 border-r-2 border-accent" />
-                  <div className="absolute -bottom-1 -left-1 size-4 border-b-2 border-l-2 border-accent" />
-                  <div className="absolute -bottom-1 -right-1 size-4 border-b-2 border-r-2 border-accent" />
-                  <div className="absolute inset-x-0 top-1/2 h-0.5 bg-accent/40 animate-pulse" />
+                <div className="relative size-52 sm:size-64 rounded-3xl border-2 border-accent/80 shadow-[0_0_30px_rgba(233,111,37,0.35)]">
+                  {/* High tech corner brackets */}
+                  <div className="absolute -top-1.5 -left-1.5 size-6 border-t-4 border-l-4 border-accent rounded-tl-xl" />
+                  <div className="absolute -top-1.5 -right-1.5 size-6 border-t-4 border-r-4 border-accent rounded-tr-xl" />
+                  <div className="absolute -bottom-1.5 -left-1.5 size-6 border-b-4 border-l-4 border-accent rounded-bl-xl" />
+                  <div className="absolute -bottom-1.5 -right-1.5 size-6 border-b-4 border-r-4 border-accent rounded-br-xl" />
+                  {/* Laser scan line animation */}
+                  <div className="absolute inset-x-0 top-1/2 h-0.5 bg-accent/80 shadow-[0_0_12px_rgba(233,111,37,1)] animate-pulse" />
                 </div>
               </div>
             )}
-            <canvas ref={canvasRef} className="hidden" />
-            {camera !== "on" ? (
-              <div className="grid aspect-video place-items-center p-6 text-center text-sm text-white/60">
-                <div className="flex flex-col items-center gap-2">
-                  <Camera className="size-8 text-white/40" />
-                  <p>{camera === "starting" ? "Initializing camera device…" : "Camera is currently inactive"}</p>
-                  <p className="text-xs text-white/40">Click &apos;Start camera&apos; or type the printed ticket code below</p>
-                </div>
-              </div>
-            ) : null}
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {camera === "on" ? (
-              <Button variant="secondary" onClick={stopCamera}><CameraOff className="size-4" aria-hidden /> Stop camera</Button>
-            ) : (
-              <Button onClick={startCamera} disabled={camera === "starting"}><Camera className="size-4" aria-hidden /> Start camera</Button>
-            )}
-          </div>
-          {camera === "denied" ? <FormMessage>Camera access was blocked or is unavailable. Use manual entry below.</FormMessage> : null}
 
-          <form onSubmit={submitManual} className="flex flex-wrap items-end gap-3" aria-label="Manual ticket entry">
-            <div className="min-w-0 flex-1">
-              <label htmlFor="manual" className="mb-1.5 block text-sm font-semibold">Ticket reference (manual entry)</label>
-              <input id="manual" value={manual} onChange={(e) => setManual(e.target.value)} autoComplete="off" spellCheck={false} maxLength={200} className={inputClass(false)} placeholder="26-character reference printed on the ticket" />
+            <canvas ref={canvasRef} className="hidden" />
+
+            {camera !== "on" && (
+              <div className="grid aspect-video place-items-center p-8 text-center text-white/70">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex size-14 items-center justify-center rounded-2xl bg-white/10 text-white/80">
+                    <Camera className="size-7" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-base text-white">
+                      {camera === "starting" ? "Initializing camera device…" : "Scanner Camera Inactive"}
+                    </p>
+                    <p className="text-xs text-white/60 mt-1 max-w-sm">
+                      Click below to activate device camera scanning or use manual ticket code entry.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {camera === "on" ? (
+              <Button variant="secondary" onClick={stopCamera} className="shadow-sm cursor-pointer">
+                <CameraOff className="size-4 mr-1.5" aria-hidden />
+                <span>Turn Off Camera</span>
+              </Button>
+            ) : (
+              <Button onClick={startCamera} disabled={camera === "starting"} className="shadow-sm cursor-pointer">
+                <Camera className="size-4 mr-1.5" aria-hidden />
+                <span>{camera === "starting" ? "Starting…" : "Activate Camera Scanner"}</span>
+              </Button>
+            )}
+            {!pair && (
+              <Button variant="secondary" onClick={connectPhone} className="shadow-sm cursor-pointer">
+                <Smartphone className="size-4 mr-1.5" aria-hidden />
+                <span>Use phone as camera</span>
+              </Button>
+            )}
+          </div>
+
+          {pair && (
+            <div className="flex flex-col gap-4 rounded-2xl border border-line/70 bg-elevated/70 p-4 shadow-sm sm:flex-row sm:items-center">
+              {/* eslint-disable-next-line @next/next/no-img-element -- generated data: URL */}
+              <img src={pair.qr} alt="QR code to open the phone scanner" className="size-40 shrink-0 self-center rounded-xl bg-white p-1.5" />
+              <div className="min-w-0 flex-1 space-y-2 text-sm">
+                <p className="flex items-center gap-2 font-bold text-foreground">
+                  <span className={cn("size-2.5 rounded-full", phoneOnline ? "bg-emerald-500" : "bg-amber-500 animate-pulse")} />
+                  {phoneOnline ? "Phone connected: scans appear here" : "Waiting for phone…"}
+                </p>
+                <p className="text-xs text-muted">
+                  Scan this code with the phone camera and open the link. The phone scans tickets as you; results show on this screen.
+                  The link works for 8 hours or until you disconnect.
+                </p>
+                <p className="truncate font-mono text-[11px] text-muted/80">{pair.url}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => void navigator.clipboard?.writeText(pair.url)}>
+                    Copy link
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={disconnectPhone}>
+                    Disconnect phone
+                  </Button>
+                </div>
+              </div>
             </div>
-            <Button type="submit" disabled={busy || !manual.trim()}>Check</Button>
+          )}
+          {pairError && <FormMessage>{pairError}</FormMessage>}
+
+          {camera === "insecure" && (
+            <FormMessage>This browser only allows the camera on https:// pages. Use &quot;Use phone as camera&quot; or manual entry.</FormMessage>
+          )}
+          {camera === "denied" && (
+            <FormMessage>Camera permission was denied. Please allow camera access in browser settings or enter ticket code manually.</FormMessage>
+          )}
+
+          {/* Manual Entry Form */}
+          <form
+            onSubmit={submitManual}
+            className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 rounded-2xl border border-line/70 bg-elevated/70 p-4 shadow-sm backdrop-blur-sm"
+            aria-label="Manual ticket entry"
+          >
+            <div className="flex-1">
+              <label htmlFor="manual" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-muted">
+                Ticket Reference / QR Payload (Manual)
+              </label>
+              <input
+                id="manual"
+                value={manual}
+                onChange={(e) => setManual(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                maxLength={200}
+                placeholder="Paste or type printed code (e.g. 26-char ULID)…"
+                className="h-11 w-full rounded-xl border border-line/70 bg-background/90 px-3.5 text-sm font-mono outline-none focus:border-accent"
+              />
+            </div>
+            <Button type="submit" disabled={busy || !manual.trim()} className="h-11 shadow-sm cursor-pointer">
+              <ScanLine className="size-4 mr-1.5" />
+              <span>Validate Code</span>
+            </Button>
           </form>
-          {error ? <FormMessage>{error}</FormMessage> : null}
+
+          {error && <FormMessage>{error}</FormMessage>}
         </div>
 
-        <div className="grid content-start gap-4">
+        {/* Right Column: Admission Result & Recent Audit Log */}
+        <div className="space-y-4">
           <div
             role="status"
             aria-live="assertive"
-            className={cn("rounded-card border-2 p-5", !result && "border-line bg-elevated", result && ok && "border-emerald-500 bg-emerald-500/15", result && !ok && "border-red-500 bg-red-500/10")}
+            className={cn(
+              "rounded-3xl border-2 p-6 transition-all duration-200 shadow-sm backdrop-blur-sm",
+              !result && "border-line/70 bg-elevated/70",
+              result && ok && "border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/10",
+              result && !ok && "border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/10",
+            )}
           >
             {result ? (
-              <>
-                <p className="flex items-center gap-2 text-xl font-bold">
-                  {ok ? <CheckCircle2 className="size-6 text-emerald-500" aria-hidden /> : <XCircle className="size-6 text-red-500" aria-hidden />}
-                  {TITLE[result.result]}
-                </p>
-                <p className="mt-1 text-sm">{result.message}</p>
-                {result.ticket ? (
-                  <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-                    <div><dt className="text-muted">Seat</dt><dd className="font-semibold">{result.ticket.seat} · {result.ticket.category}</dd></div>
-                    <div><dt className="text-muted">Room</dt><dd className="font-semibold">{result.ticket.room}</dd></div>
-                    <div className="col-span-2"><dt className="text-muted">Movie</dt><dd className="font-semibold">{result.ticket.movie}</dd></div>
-                    <div><dt className="text-muted">Starts</dt><dd className="font-semibold">{formatTime(zonedParts(result.ticket.starts_at, "Asia/Seoul").time)}</dd></div>
-                    {result.ticket.checked_in_at ? <div><dt className="text-muted">Used at</dt><dd className="font-semibold">{formatTime(zonedParts(result.ticket.checked_in_at, "Asia/Seoul").time)}</dd></div> : null}
-                  </dl>
-                ) : null}
-              </>
+              <div className="space-y-4 animate-in fade-in">
+                <div className="flex items-center gap-3">
+                  {ok ? (
+                    <div className="flex size-11 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-500">
+                      <CheckCircle2 className="size-6" />
+                    </div>
+                  ) : (
+                    <div className="flex size-11 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-500">
+                      <XCircle className="size-6" />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className={cn("text-lg font-extrabold tracking-tight", ok ? "text-emerald-500" : "text-rose-500")}>
+                      {TITLE[result.result]}
+                    </h3>
+                    <p className="text-xs text-muted mt-0.5">{result.message}</p>
+                  </div>
+                </div>
+
+                {result.ticket && (
+                  <div className="rounded-2xl border border-line/60 bg-surface/60 p-4 space-y-2 text-xs">
+                    <div className="flex items-center justify-between border-b border-line/40 pb-2">
+                      <span className="text-muted font-bold">Seat Assignment:</span>
+                      <span className="font-mono font-extrabold text-accent text-sm">
+                        {result.ticket.seat} ({result.ticket.category})
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted">Hall:</span>
+                      <span className="font-semibold text-foreground">{result.ticket.room}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted">Movie:</span>
+                      <span className="font-semibold text-foreground truncate max-w-[160px]">
+                        {result.ticket.movie}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted">Showtime:</span>
+                      <span className="font-semibold text-foreground">
+                        {formatTime(zonedParts(result.ticket.starts_at, "Asia/Seoul").time)}
+                      </span>
+                    </div>
+                    {result.ticket.checked_in_at && (
+                      <div className="flex items-center justify-between pt-1 border-t border-line/40 text-amber-500">
+                        <span>Previously scanned:</span>
+                        <span>{formatTime(zonedParts(result.ticket.checked_in_at, "Asia/Seoul").time)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             ) : (
-              <p className="text-muted">{busy ? "Checking…" : "Waiting for a ticket."}</p>
+              <div className="py-8 text-center text-muted">
+                <QrCode className="mx-auto size-8 opacity-30 mb-2" />
+                <p className="text-sm font-semibold">{busy ? "Verifying ticket…" : "Ready to Scan"}</p>
+                <p className="text-xs text-muted/80 mt-1">Point scanner at QR or enter code.</p>
+              </div>
             )}
           </div>
-          <div>
-            <h2 className="font-semibold">Your recent scans</h2>
-            <ul className="mt-2 divide-y divide-line text-sm" aria-label="Recent scans">
-              {recent.slice(0, 8).map((r, i) => (
-                <li key={i} className="flex justify-between py-1.5"><span>{r.seat ?? "—"}</span><span className={r.outcome === "valid" ? "text-emerald-500" : "text-red-500"}>{r.outcome.replaceAll("_", " ")}</span></li>
+
+          {/* Ticket printer */}
+          <div className="space-y-3 rounded-3xl border border-line/70 bg-elevated/70 p-5 shadow-sm backdrop-blur-sm">
+            <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
+              <Printer className="size-4" aria-hidden /> Ticket printer
+            </h3>
+            <PrinterControl printer={printer} />
+            {printer.name && (
+              <>
+                <label className="flex items-center gap-2 text-xs text-foreground">
+                  <input type="checkbox" checked={autoPrint} onChange={(e) => setAutoPrint(e.target.checked)} className="accent-accent" />
+                  Auto-print every admitted ticket
+                </label>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  disabled={printer.busy || !result?.ticket}
+                  onClick={() => result?.ticket && void printer.print(result.ticket)}
+                >
+                  <Printer className="size-4" aria-hidden />
+                  {printer.busy ? "Printing…" : result?.ticket ? `Print ticket (seat ${result.ticket.seat})` : "Scan a ticket to print"}
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* Recent Scans Feed */}
+          <div className="rounded-3xl border border-line/70 bg-elevated/70 p-5 shadow-sm backdrop-blur-sm">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted mb-3 flex items-center justify-between">
+              <span>Recent Scans</span>
+              <span className="text-[10px] text-muted/80 font-normal">Session history</span>
+            </h3>
+
+            <ul className="space-y-2 text-xs" aria-label="Recent scans">
+              {recent.slice(0, 7).map((r, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between rounded-xl border border-line/50 bg-surface/50 px-3 py-2"
+                >
+                  <span className="font-mono font-bold text-foreground">
+                    Seat {r.seat ?? "—"}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-semibold uppercase text-[10px]",
+                      r.outcome === "valid" ? "text-emerald-500 font-bold" : "text-rose-500",
+                    )}
+                  >
+                    {r.outcome.replaceAll("_", " ")}
+                  </span>
+                </li>
               ))}
-              {recent.length === 0 ? <li className="py-1.5 text-muted">No scans yet.</li> : null}
+              {recent.length === 0 && (
+                <li className="py-3 text-center text-muted italic">No tickets scanned yet this session.</li>
+              )}
             </ul>
           </div>
         </div>

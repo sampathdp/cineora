@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\Admin\PaymentAdminController;
 use App\Http\Controllers\Api\V1\Admin\RefundAdminController;
 use App\Http\Controllers\Api\V1\Admin\ShowtimeAdminController;
 use App\Http\Controllers\Api\V1\Admin\TicketAdminController;
+use App\Http\Controllers\Api\V1\Admin\ScannerPairController;
 use App\Http\Controllers\Api\V1\Admin\AuditLogController;
 use App\Http\Controllers\Api\V1\Admin\BookingAdminController;
 use App\Http\Controllers\Api\V1\Admin\ContentAdminController;
@@ -115,6 +116,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/showtimes/{showtime}/seats', [ShowtimeController::class, 'seats']);
     });
 
+    // --- Paired phone camera for the door scanner: authorised by the pairing token, not a session ---
+    Route::prefix('scanner/remote/{token}')->middleware('throttle:scanner')->group(function () {
+        Route::get('/', [ScannerPairController::class, 'ping']);
+        Route::post('/scan', [ScannerPairController::class, 'scan']);
+    });
+
     // --- Admin: staff + MFA gate, then per-resource policies in the controllers ---
     Route::prefix('admin')->middleware(['auth:sanctum', 'staff', 'mfa', 'throttle:admin'])->group(function () {
         Route::get('/movies', [MovieAdminController::class, 'index']);
@@ -209,6 +216,9 @@ Route::prefix('v1')->group(function () {
 
         Route::post('/tickets/validate', [TicketAdminController::class, 'validateTicket'])->middleware('throttle:scanner');
         Route::get('/tickets/recent', [TicketAdminController::class, 'recent']);
+        Route::post('/scanner/pairs', [ScannerPairController::class, 'create']);
+        Route::get('/scanner/pairs/{token}/events', [ScannerPairController::class, 'events']);
+        Route::delete('/scanner/pairs/{token}', [ScannerPairController::class, 'destroy']);
 
         Route::get('/showtimes', [ShowtimeAdminController::class, 'index']);
         Route::post('/showtimes', [ShowtimeAdminController::class, 'store']);

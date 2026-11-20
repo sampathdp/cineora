@@ -8,15 +8,12 @@ import {
   BarChart3,
   Building2,
   CalendarClock,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clapperboard,
-  Command,
   ExternalLink,
   Film,
   Globe,
-  HelpCircle,
   Landmark,
   LayoutDashboard,
   LogOut,
@@ -46,7 +43,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   permission: string | null;
   badge?: string;
-  badgeTone?: "good" | "warn" | "bad" | "info";
+  badgeTone?: "good" | "warn" | "bad" | "info" | "accent";
 }
 
 interface NavSection {
@@ -56,7 +53,7 @@ interface NavSection {
 
 const NAV_SECTIONS: NavSection[] = [
   {
-    title: "Overview",
+    title: "Intelligence & Overview",
     items: [
       { href: "/admin", label: "Dashboard", icon: LayoutDashboard, permission: null },
       { href: "/admin/reports", label: "Reports & Analytics", icon: BarChart3, permission: "reports.view" },
@@ -68,13 +65,13 @@ const NAV_SECTIONS: NavSection[] = [
       { href: "/admin/movies", label: "Movies & Catalog", icon: Clapperboard, permission: "movies.view" },
       { href: "/admin/cinemas", label: "Cinemas & Rooms", icon: Building2, permission: "cinemas.view" },
       { href: "/admin/showtimes", label: "Showtimes & Grid", icon: CalendarClock, permission: "showtimes.manage" },
-      { href: "/admin/tickets/scan", label: "Ticket Scanner", icon: ScanLine, permission: "tickets.validate", badge: "Scanner" },
+      { href: "/admin/tickets/scan", label: "Ticket Scanner", icon: ScanLine, permission: "tickets.validate", badge: "Scanner", badgeTone: "accent" },
     ],
   },
   {
     title: "Commerce & Sales",
     items: [
-      { href: "/admin/bookings", label: "Bookings", icon: Ticket, permission: "bookings.view" },
+      { href: "/admin/bookings", label: "Bookings & Orders", icon: Ticket, permission: "bookings.view" },
       { href: "/admin/payments", label: "Payments Queue", icon: Banknote, permission: "payments.view" },
       { href: "/admin/refunds", label: "Refund Requests", icon: Undo2, permission: "refunds.decide" },
       { href: "/admin/bank-accounts", label: "Bank Accounts", icon: Landmark, permission: "payments.manage_bank_accounts" },
@@ -84,7 +81,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "Users & Security",
     items: [
-      { href: "/admin/customers", label: "Customers", icon: Users, permission: "customers.view" },
+      { href: "/admin/customers", label: "Customer Accounts", icon: Users, permission: "customers.view" },
       { href: "/admin/staff", label: "Staff & Access", icon: ShieldCheck, permission: "staff.manage" },
       { href: "/admin/audit-logs", label: "Audit Logs", icon: ScrollText, permission: "audit.view" },
     ],
@@ -92,8 +89,8 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: "System & CMS",
     items: [
-      { href: "/admin/content", label: "Content & CMS", icon: Newspaper, permission: "content.manage" },
-      { href: "/admin/settings", label: "Website Settings", icon: Settings, permission: "settings.manage" },
+      { href: "/admin/content", label: "Content & News", icon: Newspaper, permission: "content.manage" },
+      { href: "/admin/settings", label: "Portal Settings", icon: Settings, permission: "settings.manage" },
     ],
   },
 ];
@@ -158,9 +155,12 @@ export function AdminShell({ children }: { children: ReactNode }) {
   if (status === "loading" || needsLogin || needsMfa || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background" aria-busy="true">
-        <div className="flex flex-col items-center gap-3">
-          <div className="size-10 animate-spin rounded-full border-2 border-line border-t-accent" />
-          <p className="text-xs uppercase tracking-widest text-muted">Authenticating staff session…</p>
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative flex size-12 items-center justify-center">
+            <div className="absolute inset-0 animate-ping rounded-full bg-accent/20" />
+            <div className="size-10 animate-spin rounded-full border-2 border-line border-t-accent" />
+          </div>
+          <p className="text-xs uppercase tracking-widest text-muted font-medium">Authenticating staff session…</p>
         </div>
       </div>
     );
@@ -175,14 +175,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
     .toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground">
+    <div className="flex min-h-screen bg-background text-foreground antialiased">
       {/* Command Palette Dialog */}
       <AdminCommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} />
 
       {/* Mobile Drawer Backdrop */}
       {mobileMenuOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden animate-in fade-in"
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
           onClick={() => setMobileMenuOpen(false)}
         />
       )}
@@ -190,23 +190,25 @@ export function AdminShell({ children }: { children: ReactNode }) {
       {/* Mobile Navigation Drawer */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-line/80 bg-surface text-foreground shadow-2xl transition-transform duration-300 lg:hidden",
+          "fixed inset-y-0 left-0 z-50 flex h-dvh w-72 flex-col border-r border-line/80 bg-surface/95 text-foreground shadow-2xl backdrop-blur-md transition-transform duration-300 lg:hidden",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className="flex h-16 items-center justify-between border-b border-line/60 px-5">
+        <div className="flex h-16 items-center justify-between border-b border-line/60 px-5 bg-surface/50">
           <Link href="/admin" className="flex items-center gap-2.5">
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-hover text-on-accent shadow-md shadow-accent/20">
               <Film className="size-5" />
             </div>
             <div>
-              <span className="display text-lg font-bold tracking-wider">AR ENTERTAINMENT</span>
-              <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent">Operations</span>
+              <span className="display text-base font-bold tracking-wider leading-none">AR ENTERTAINMENT</span>
+              <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent leading-tight">
+                Operations HQ
+              </span>
             </div>
           </Link>
           <button
             onClick={() => setMobileMenuOpen(false)}
-            className="rounded-lg p-1.5 text-muted hover:bg-elevated hover:text-foreground"
+            className="rounded-xl p-2 text-muted hover:bg-elevated hover:text-foreground transition cursor-pointer"
             aria-label="Close navigation menu"
           >
             <X className="size-5" />
@@ -221,21 +223,23 @@ export function AdminShell({ children }: { children: ReactNode }) {
               setMobileMenuOpen(false);
               setCommandOpen(true);
             }}
-            className="flex w-full items-center justify-between rounded-xl border border-line/70 bg-elevated/70 px-3.5 py-2.5 text-xs text-muted shadow-sm transition hover:border-line hover:text-foreground"
+            className="flex w-full items-center justify-between rounded-xl border border-line/70 bg-elevated/80 px-3.5 py-2.5 text-xs text-muted shadow-sm transition hover:border-line hover:text-foreground cursor-pointer"
           >
             <span className="flex items-center gap-2">
               <Search className="size-4" />
-              <span>Jump to…</span>
+              <span>Jump to anything…</span>
             </span>
-            <kbd className="rounded border border-line bg-surface px-1.5 py-0.5 text-[10px] font-mono">Ctrl+K</kbd>
+            <kbd className="rounded border border-line bg-surface px-1.5 py-0.5 text-[10px] font-mono">⌘K</kbd>
           </button>
         </div>
 
         {/* Navigation list */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 scrollbar-none">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 [scrollbar-width:thin] space-y-5">
           {visibleSections.map((sec) => (
-            <div key={sec.title} className="mb-5">
-              <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted/80">{sec.title}</p>
+            <div key={sec.title}>
+              <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted/70">
+                {sec.title}
+              </p>
               <ul className="space-y-0.5">
                 {sec.items.map(({ href, label, icon: Icon, badge }) => {
                   const active = href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
@@ -244,18 +248,21 @@ export function AdminShell({ children }: { children: ReactNode }) {
                       <Link
                         href={href}
                         className={cn(
-                          "group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition",
+                          "group relative flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
                           active
                             ? "bg-accent/15 text-accent font-semibold"
                             : "text-muted hover:bg-elevated hover:text-foreground",
                         )}
                       >
+                        {active && (
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-accent shadow-[0_0_8px_rgba(233,111,37,0.8)]" />
+                        )}
                         <span className="flex items-center gap-3">
                           <Icon className={cn("size-4 transition", active ? "text-accent" : "text-muted group-hover:text-foreground")} />
                           <span>{label}</span>
                         </span>
                         {badge && (
-                          <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
+                          <span className="rounded-full bg-accent/20 border border-accent/30 px-2 py-0.5 text-[10px] font-bold text-accent">
                             {badge}
                           </span>
                         )}
@@ -269,14 +276,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
 
         {/* User Card */}
-        <div className="border-t border-line/60 bg-surface/50 p-4">
+        <div className="border-t border-line/60 bg-surface/60 p-4">
           <div className="flex items-center gap-3">
             <div className="flex size-9 items-center justify-center rounded-xl bg-accent/15 font-semibold text-accent border border-accent/20">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-foreground">{user.name}</p>
-              <p className="truncate text-[11px] text-muted">{user.roles.join(", ") || "Staff"}</p>
+              <p className="truncate text-[10px] text-muted uppercase tracking-wider">{user.roles[0]?.replaceAll("_", " ") || "Staff"}</p>
             </div>
             <button
               onClick={async () => {
@@ -284,7 +291,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 router.replace("/admin/login");
               }}
               title="Sign out"
-              className="rounded-lg p-2 text-muted hover:bg-elevated hover:text-rose-500"
+              className="rounded-xl p-2 text-muted hover:bg-elevated hover:text-rose-500 transition cursor-pointer"
             >
               <LogOut className="size-4" />
             </button>
@@ -293,22 +300,25 @@ export function AdminShell({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Desktop Persistent Sidebar */}
+      <div aria-hidden className={cn("hidden shrink-0 transition-all duration-300 lg:block", collapsed ? "w-20" : "w-64 xl:w-72")} />
       <aside
         className={cn(
-          "sticky top-0 z-30 hidden h-screen shrink-0 flex-col border-r border-line/70 bg-surface/95 backdrop-blur-md transition-all duration-300 lg:flex",
+          "fixed inset-y-0 left-0 z-30 hidden h-dvh flex-col border-r border-line/70 bg-surface/95 backdrop-blur-md transition-all duration-300 lg:flex shadow-sm",
           collapsed ? "w-20" : "w-64 xl:w-72",
         )}
       >
         {/* Brand Header */}
-        <div className="flex h-16 items-center justify-between border-b border-line/60 px-4">
-          <Link href="/admin" className={cn("flex items-center gap-2.5", collapsed && "justify-center w-full")}>
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-hover text-on-accent shadow-md shadow-accent/20">
+        <div className="flex h-16 items-center justify-between border-b border-line/60 px-4 bg-surface/50">
+          <Link href="/admin" className={cn("flex items-center gap-2.5 group", collapsed && "justify-center w-full")}>
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-accent-hover text-on-accent shadow-md shadow-accent/25 transition-transform group-hover:scale-105">
               <Film className="size-5" />
             </div>
             {!collapsed && (
               <div className="overflow-hidden">
-                <span className="display text-lg font-bold tracking-wider leading-none">AR ENTERTAINMENT</span>
-                <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent leading-tight">
+                <span className="display text-base font-bold tracking-wider leading-none text-foreground">
+                  AR ENTERTAINMENT
+                </span>
+                <span className="block text-[10px] font-semibold uppercase tracking-widest text-accent leading-tight mt-0.5">
                   Operations HQ
                 </span>
               </div>
@@ -317,7 +327,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           {!collapsed && (
             <button
               onClick={() => setCollapsed(true)}
-              className="rounded-lg p-1.5 text-muted hover:bg-elevated hover:text-foreground transition"
+              className="rounded-xl p-1.5 text-muted hover:bg-elevated hover:text-foreground transition cursor-pointer"
               title="Collapse sidebar"
               aria-label="Collapse sidebar"
             >
@@ -331,7 +341,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <div className="flex justify-center border-b border-line/60 py-2">
             <button
               onClick={() => setCollapsed(false)}
-              className="rounded-lg p-1.5 text-muted hover:bg-elevated hover:text-foreground transition"
+              className="rounded-xl p-1.5 text-muted hover:bg-elevated hover:text-foreground transition cursor-pointer"
               title="Expand sidebar"
               aria-label="Expand sidebar"
             >
@@ -346,11 +356,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
-              className="group flex w-full items-center justify-between rounded-xl border border-line/70 bg-elevated/70 px-3 py-2 text-xs text-muted shadow-sm transition hover:border-line hover:text-foreground"
+              className="group flex w-full items-center justify-between rounded-xl border border-line/70 bg-elevated/70 px-3 py-2 text-xs text-muted shadow-sm transition hover:border-accent/50 hover:text-foreground cursor-pointer"
             >
               <span className="flex items-center gap-2">
-                <Search className="size-3.5 text-muted group-hover:text-foreground transition" />
-                <span>Search portal…</span>
+                <Search className="size-3.5 text-muted group-hover:text-accent transition" />
+                <span>Quick search…</span>
               </span>
               <kbd className="rounded border border-line bg-surface px-1.5 py-0.5 text-[10px] font-mono text-muted group-hover:text-foreground">
                 ⌘K
@@ -360,7 +370,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         )}
 
         {/* Navigation Categories */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 scrollbar-none space-y-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:thin] space-y-5">
           {visibleSections.map((sec) => (
             <div key={sec.title}>
               {!collapsed ? (
@@ -382,20 +392,20 @@ export function AdminShell({ children }: { children: ReactNode }) {
                           "group relative flex items-center rounded-xl transition-all duration-150",
                           collapsed ? "size-10 justify-center mx-auto" : "justify-between px-3 py-2 text-sm font-medium",
                           active
-                            ? "bg-accent/15 text-accent font-semibold"
+                            ? "bg-accent/15 text-accent font-semibold shadow-sm"
                             : "text-muted hover:bg-elevated hover:text-foreground",
                         )}
                       >
                         {/* Active indicator bar */}
                         {active && !collapsed && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-accent" />
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full bg-accent shadow-[0_0_8px_rgba(233,111,37,0.8)]" />
                         )}
                         <span className="flex items-center gap-2.5">
                           <Icon className={cn("size-4 shrink-0 transition", active ? "text-accent" : "text-muted group-hover:text-foreground")} />
                           {!collapsed && <span className="truncate">{label}</span>}
                         </span>
                         {!collapsed && badge && (
-                          <span className="rounded-full bg-accent/15 border border-accent/25 px-1.5 py-0.2 text-[10px] font-bold text-accent">
+                          <span className="rounded-full bg-accent/15 border border-accent/25 px-1.5 py-0.5 text-[10px] font-bold text-accent">
                             {badge}
                           </span>
                         )}
@@ -418,10 +428,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   href="/"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 text-muted hover:text-foreground transition"
-                  title="Open public website in a new tab"
+                  className="flex items-center gap-1.5 text-muted hover:text-foreground transition group"
+                  title="Open consumer website in a new tab"
                 >
-                  <Globe className="size-3.5" />
+                  <Globe className="size-3.5 group-hover:text-accent transition" />
                   <span>Public Site</span>
                   <ExternalLink className="size-3 opacity-60" />
                 </a>
@@ -429,8 +439,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 <button
                   type="button"
                   onClick={toggleTheme}
-                  className="flex items-center gap-1 rounded-md p-1 hover:bg-elevated hover:text-foreground transition"
-                  title="Toggle light / dark theme"
+                  className="flex items-center gap-1 rounded-lg p-1.5 hover:bg-elevated hover:text-foreground transition cursor-pointer"
+                  title="Toggle theme"
                 >
                   {resolved === "dark" ? <Sun className="size-3.5 text-amber-400" /> : <Moon className="size-3.5 text-slate-700" />}
                 </button>
@@ -439,7 +449,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               {/* User badge */}
               <div className="flex items-center justify-between rounded-xl border border-line/60 bg-elevated/80 p-2.5 shadow-sm">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-xs font-bold text-accent border border-accent/20">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-xs font-bold text-accent border border-accent/20">
                     {initials}
                   </div>
                   <div className="min-w-0">
@@ -455,7 +465,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                     router.replace("/admin/login");
                   }}
                   title="Sign out"
-                  className="rounded-lg p-1.5 text-muted hover:bg-surface hover:text-rose-500 transition"
+                  className="rounded-lg p-1.5 text-muted hover:bg-surface hover:text-rose-500 transition cursor-pointer"
                   aria-label="Sign out"
                 >
                   <LogOut className="size-4" />
@@ -467,7 +477,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="rounded-lg p-2 text-muted hover:bg-elevated hover:text-foreground transition"
+                className="rounded-xl p-2 text-muted hover:bg-elevated hover:text-foreground transition cursor-pointer"
                 title="Toggle theme"
               >
                 {resolved === "dark" ? <Sun className="size-4 text-amber-400" /> : <Moon className="size-4" />}
@@ -478,7 +488,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                   router.replace("/admin/login");
                 }}
                 title="Sign out"
-                className="rounded-lg p-2 text-muted hover:bg-elevated hover:text-rose-500 transition"
+                className="rounded-xl p-2 text-muted hover:bg-elevated hover:text-rose-500 transition cursor-pointer"
                 aria-label="Sign out"
               >
                 <LogOut className="size-4" />
@@ -496,7 +506,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="rounded-lg p-2 text-muted hover:bg-surface hover:text-foreground lg:hidden"
+              className="rounded-xl p-2 text-muted hover:bg-surface hover:text-foreground lg:hidden cursor-pointer"
               aria-label="Open sidebar"
             >
               <Menu className="size-5" />
@@ -504,7 +514,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
             {/* Breadcrumb indicator */}
             <div className="hidden sm:flex items-center gap-2 text-xs">
-              <span className="text-muted">{currentTitle.section}</span>
+              <span className="text-muted font-medium">{currentTitle.section}</span>
               <ChevronRight className="size-3 text-muted/40" />
               <span className="font-semibold text-foreground">{currentTitle.title}</span>
             </div>
@@ -516,7 +526,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
-              className="flex items-center gap-2 rounded-xl border border-line/70 bg-surface/70 px-3 py-1.5 text-xs text-muted shadow-sm transition hover:border-line hover:text-foreground"
+              className="flex items-center gap-2 rounded-xl border border-line/70 bg-surface/70 px-3 py-1.5 text-xs text-muted shadow-sm transition hover:border-line hover:text-foreground cursor-pointer"
             >
               <Search className="size-3.5" />
               <span className="hidden sm:inline">Search portal…</span>
@@ -526,8 +536,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </button>
 
             {/* Live Operations badge */}
-            <div className="hidden md:flex items-center gap-2 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-500">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="hidden md:flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-500 shadow-sm">
+              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
               <span>HQ Online</span>
             </div>
 
@@ -536,18 +546,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
               href="/"
               target="_blank"
               rel="noreferrer"
-              className="hidden lg:flex items-center gap-1.5 rounded-xl border border-line/70 px-2.5 py-1.5 text-xs font-semibold text-muted hover:border-line hover:text-foreground transition"
+              className="hidden lg:flex items-center gap-1.5 rounded-xl border border-line/70 px-3 py-1.5 text-xs font-semibold text-muted hover:border-line hover:text-foreground transition group"
               title="Open public website in a new tab"
             >
               <span>Live Site</span>
-              <ExternalLink className="size-3" />
+              <ExternalLink className="size-3 opacity-60 group-hover:opacity-100" />
             </a>
 
             {/* Theme switcher */}
             <button
               type="button"
               onClick={toggleTheme}
-              className="rounded-xl border border-line/70 p-2 text-muted hover:border-line hover:text-foreground transition"
+              className="rounded-xl border border-line/70 p-2 text-muted hover:border-line hover:text-foreground transition cursor-pointer"
               title="Toggle light / dark mode"
               aria-label="Toggle theme"
             >
@@ -555,8 +565,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </button>
 
             {/* Staff Pill */}
-            <div className="flex items-center gap-2 rounded-full border border-line/60 bg-surface/80 py-1 pl-1 pr-3">
-              <div className="flex size-6 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-on-accent">
+            <div className="flex items-center gap-2 rounded-full border border-line/60 bg-surface/80 py-1 pl-1 pr-3 shadow-sm">
+              <div className="flex size-6 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-on-accent shadow-sm">
                 {initials}
               </div>
               <span className="max-w-[100px] truncate text-xs font-semibold text-foreground hidden sm:inline">
@@ -567,9 +577,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </header>
 
         {/* Workspace Canvas */}
-        <div className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto animate-in fade-in duration-200">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto animate-in fade-in duration-200">
           {children}
-        </div>
+        </main>
       </div>
     </div>
   );

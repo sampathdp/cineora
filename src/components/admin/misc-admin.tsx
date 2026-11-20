@@ -1,13 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Building, Check, CreditCard, Landmark, Plus, Undo2 } from "lucide-react";
+import {
+  AlertCircle,
+  Building,
+  Check,
+  CreditCard,
+  Landmark,
+  Plus,
+  Receipt,
+  RotateCcw,
+  Undo2,
+  X,
+} from "lucide-react";
 import { adminApi, type AdminBankAccount, type AdminRefund } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
 import { formatPrice } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
-import { FormMessage, inputClass } from "@/components/auth/form-kit";
+import { FormMessage } from "@/components/auth/form-kit";
 import { AdminModal, PageTitle, Pill, TextField, TextArea } from "./kit";
 import { cn } from "@/lib/utils";
 
@@ -56,57 +67,75 @@ export function RefundsQueue() {
   }
 
   return (
-    <section>
+    <section className="space-y-6">
       <PageTitle
-        title="Refund Requests"
-        eyebrow="Finance & Customer Settle"
-        hint="Review customer refund requests. Once approved with a payout transfer reference, ticket inventory is released."
+        title="Refund Requests & Payouts"
+        eyebrow="Finance & Settlements"
+        icon={Undo2}
+        hint="Review customer ticket refund claims. Once approved with an outbound bank transfer reference, held seat inventory is released."
       />
 
-      {error ? <div className="mb-4"><FormMessage>{error}</FormMessage></div> : null}
+      {error ? (
+        <div className="mb-4">
+          <FormMessage>{error}</FormMessage>
+        </div>
+      ) : null}
 
       <div className="mt-4">
         {!state ? (
-          <Skeleton className="h-40 rounded-xl" />
+          <Skeleton className="h-40 rounded-2xl" />
         ) : state.error ? (
           <FormMessage>{state.error}</FormMessage>
         ) : state.items?.length === 0 ? (
           <EmptyState
-            title="No open refund requests"
-            description="All refund submissions have been resolved."
+            title="No Pending Refund Requests"
+            description="All customer refund submissions have been decided and processed."
           />
         ) : (
-          <ul className="grid gap-3">
+          <ul className="grid gap-3.5">
             {state.items?.map((r) => (
               <li
                 key={r.id}
-                className="rounded-xl border border-line/70 bg-elevated/70 p-5 shadow-sm backdrop-blur-sm transition hover:border-line"
+                className="rounded-2xl border border-line/70 bg-elevated/80 p-5 shadow-sm backdrop-blur-md transition hover:border-line space-y-4"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line/40 pb-3">
-                  <span className="font-mono text-base font-bold text-foreground">
-                    {r.booking.reference}
-                  </span>
-                  <span className="text-base font-bold text-accent">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex size-9 items-center justify-center rounded-xl bg-accent/15 text-accent border border-accent/20">
+                      <Receipt className="size-4" />
+                    </div>
+                    <div>
+                      <span className="font-mono text-base font-extrabold text-foreground tracking-wider block">
+                        {r.booking.reference}
+                      </span>
+                      <span className="text-xs text-muted block">{r.booking.movie}</span>
+                    </div>
+                  </div>
+
+                  <span className="text-lg font-extrabold text-accent">
                     {formatPrice(r.amount)}
                   </span>
                 </div>
-                <div className="mt-3">
-                  <p className="text-xs font-semibold text-muted uppercase tracking-wider">Movie</p>
-                  <p className="text-sm font-medium text-foreground">{r.booking.movie}</p>
+
+                <div className="rounded-xl border border-line/50 bg-surface/60 p-3.5 text-xs space-y-1">
+                  <p className="font-bold uppercase tracking-wider text-muted text-[10px]">
+                    Customer Stated Reason:
+                  </p>
+                  <p className="italic text-foreground/90 font-medium leading-relaxed">
+                    &quot;{r.reason}&quot;
+                  </p>
                 </div>
-                <div className="mt-2.5 rounded-lg bg-surface/60 p-3 border border-line/40">
-                  <p className="text-xs text-muted mb-0.5 font-semibold">Reason stated by customer:</p>
-                  <p className="text-sm italic text-foreground">{r.reason}</p>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2.5">
+
+                <div className="flex flex-wrap items-center gap-2.5 pt-1">
                   <Button
                     size="sm"
                     onClick={() => {
                       setPayoutRef("");
                       setPayoutTarget(r);
                     }}
+                    className="shadow-sm cursor-pointer"
                   >
-                    Record payout…
+                    <Check className="size-3.5 mr-1" />
+                    <span>Record Payout…</span>
                   </Button>
                   <Button
                     size="sm"
@@ -115,8 +144,10 @@ export function RefundsQueue() {
                       setDenyReason("");
                       setDenyTarget(r);
                     }}
+                    className="cursor-pointer"
                   >
-                    Deny…
+                    <X className="size-3.5 mr-1" />
+                    <span>Deny Claim…</span>
                   </Button>
                 </div>
               </li>
@@ -139,30 +170,31 @@ export function RefundsQueue() {
               e.preventDefault();
               if (payoutRef.trim()) void act(() => adminApi.payRefund(payoutTarget.id, payoutRef.trim()));
             }}
-            className="grid gap-4"
+            className="space-y-4"
           >
-            <div className="rounded-xl border border-line/60 bg-surface/50 p-3">
-              <p className="text-xs text-muted">Refund Amount</p>
-              <p className="text-2xl font-bold text-accent">{formatPrice(payoutTarget.amount)}</p>
+            <div className="rounded-2xl border border-line/60 bg-surface/50 p-4 space-y-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted">Refund Amount Due</p>
+              <p className="text-2xl font-extrabold text-accent">{formatPrice(payoutTarget.amount)}</p>
               <p className="text-xs text-muted mt-1">{payoutTarget.booking.movie}</p>
             </div>
-            <div>
-              <label htmlFor="payout-ref" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted">
-                Bank Transfer Reference
-              </label>
-              <input
-                id="payout-ref"
-                required
-                value={payoutRef}
-                onChange={(e) => setPayoutRef(e.target.value)}
-                placeholder="e.g. REF-2026-98124"
-                className={inputClass(false)}
-              />
-              <p className="mt-1 text-xs text-muted">Wire/transfer transaction ID from your banking app</p>
-            </div>
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-line/40">
-              <Button type="button" variant="ghost" onClick={() => setPayoutTarget(null)}>Cancel</Button>
-              <Button type="submit" disabled={acting || !payoutRef.trim()}>{acting ? "Recording…" : "Confirm Payout"}</Button>
+
+            <TextField
+              id="payout-ref"
+              label="Bank Transfer Outbound Reference"
+              required
+              value={payoutRef}
+              onChange={(e) => setPayoutRef(e.target.value)}
+              placeholder="e.g. TX-2026-REF8912"
+              hint="Outbound wire transaction reference number from corporate banking portal"
+            />
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-line/60">
+              <Button type="button" variant="ghost" onClick={() => setPayoutTarget(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={acting || !payoutRef.trim()} className="shadow-sm">
+                {acting ? "Recording…" : "Confirm Outbound Payout"}
+              </Button>
             </div>
           </form>
         )}
@@ -172,7 +204,7 @@ export function RefundsQueue() {
       <AdminModal
         open={!!denyTarget}
         onClose={() => setDenyTarget(null)}
-        title="Deny Refund Request"
+        title="Deny Refund Claim"
         subtitle={`Booking reference: ${denyTarget?.booking.reference ?? ""}`}
         size="sm"
       >
@@ -182,29 +214,35 @@ export function RefundsQueue() {
               e.preventDefault();
               if (denyReason.trim()) void act(() => adminApi.denyRefund(denyTarget.id, denyReason.trim()));
             }}
-            className="grid gap-4"
+            className="space-y-4"
           >
-            <div className="rounded-xl border border-line/60 bg-surface/50 p-3">
-              <p className="text-xs text-muted">Customer Claim</p>
-              <p className="text-sm italic text-foreground mt-0.5">{denyTarget.reason}</p>
+            <div className="rounded-2xl border border-line/60 bg-surface/50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted">Customer Claim</p>
+              <p className="text-xs italic text-foreground mt-1">&quot;{denyTarget.reason}&quot;</p>
             </div>
-            <div>
-              <label htmlFor="deny-reason" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted">
-                Reason for denial (shown to customer)
-              </label>
-              <textarea
-                id="deny-reason"
-                required
-                rows={3}
-                value={denyReason}
-                onChange={(e) => setDenyReason(e.target.value)}
-                placeholder="Explain why this request is ineligible under policy..."
-                className={cn(inputClass(false), "h-auto py-2")}
-              />
-            </div>
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-line/40">
-              <Button type="button" variant="ghost" onClick={() => setDenyTarget(null)}>Cancel</Button>
-              <Button type="submit" variant="secondary" disabled={acting || !denyReason.trim()}>{acting ? "Denying…" : "Deny Request"}</Button>
+
+            <TextArea
+              id="deny-reason"
+              label="Reason for Denial (Sent to Customer)"
+              required
+              rows={3}
+              value={denyReason}
+              onChange={(e) => setDenyReason(e.target.value)}
+              placeholder="Explain why this ticket request does not meet cinema cancellation policy…"
+            />
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-line/60">
+              <Button type="button" variant="ghost" onClick={() => setDenyTarget(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={acting || !denyReason.trim()}
+                className="text-rose-500"
+              >
+                {acting ? "Denying…" : "Deny Request"}
+              </Button>
             </div>
           </form>
         )}
@@ -260,68 +298,52 @@ export function BankAccounts() {
     }
   }
 
-  const field = (key: keyof typeof form, label: string) => (
-    <div>
-      <label htmlFor={`ba-${key}`} className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-muted">
-        {label}
-      </label>
-      <input
-        id={`ba-${key}`}
-        value={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-        className={inputClass(!!errors[key])}
-        aria-invalid={!!errors[key]}
-      />
-      {errors[key] ? (
-        <p role="alert" className="mt-1 text-xs text-rose-500">
-          {errors[key]}
-        </p>
-      ) : null}
-    </div>
-  );
-
   return (
-    <section>
+    <section className="space-y-6">
       <PageTitle
-        title="Bank Accounts & Gateways"
+        title="Deposit Bank Accounts & Gateways"
         eyebrow="Finance & Treasury"
-        hint="Customers are shown active bank transfer accounts on the checkout screen when paying by offline wire."
+        icon={Landmark}
+        hint="Customers are displayed active bank transfer deposit accounts on the checkout page when paying via offline bank wire."
         action={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="size-4" aria-hidden /> Add bank account
+          <Button onClick={() => setOpen(true)} className="shadow-sm">
+            <Plus className="size-4 mr-1.5" aria-hidden />
+            <span>Add bank account</span>
           </Button>
         }
       />
 
       <div className="max-w-4xl">
         {!state ? (
-          <Skeleton className="h-32 rounded-xl" />
+          <Skeleton className="h-36 rounded-2xl" />
         ) : state.error ? (
           <FormMessage>{state.error}</FormMessage>
         ) : (
-          <ul className="grid gap-3">
+          <ul className="grid gap-3.5">
             {state.items?.map((a) => (
               <li
                 key={a.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line/70 bg-elevated/70 p-4 shadow-sm backdrop-blur-sm"
+                className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-line/70 bg-elevated/80 p-5 shadow-sm backdrop-blur-md transition hover:border-line"
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex size-9 items-center justify-center rounded-lg bg-accent/10 text-accent">
-                    <Landmark className="size-4" />
+                <div className="flex items-start gap-3.5">
+                  <div className="flex size-11 items-center justify-center rounded-2xl bg-accent/15 text-accent border border-accent/20">
+                    <Landmark className="size-5" />
                   </div>
                   <div>
-                    <p className="font-semibold text-foreground text-sm">
-                      {a.bank_name} · <span className="text-muted">{a.account_name}</span>
+                    <p className="font-extrabold text-foreground text-base">
+                      {a.bank_name} <span className="text-muted font-normal text-sm">· {a.account_name}</span>
                     </p>
-                    <p className="font-mono text-xs text-foreground mt-0.5">
+                    <p className="font-mono text-xs font-bold text-accent mt-0.5 tracking-wider">
                       {a.account_number}
-                      {a.cinema ? ` · ${a.cinema.name}` : " · All cinemas"}
                     </p>
-                    {a.swift && <p className="text-[11px] text-muted">SWIFT: {a.swift}</p>}
+                    <p className="text-[11px] text-muted mt-1">
+                      {a.cinema ? `Assigned to ${a.cinema.name}` : "Available across all cinema venues"}
+                      {a.swift ? ` · SWIFT: ${a.swift}` : ""}
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   <Pill tone={a.is_active ? "good" : "neutral"}>
                     {a.is_active ? "Active" : "Inactive"}
                   </Pill>
@@ -332,17 +354,18 @@ export function BankAccounts() {
                       await adminApi.updateBankAccount(a.id, { is_active: !a.is_active });
                       setNonce((n) => n + 1);
                     }}
+                    className="cursor-pointer shadow-sm text-xs font-semibold"
                   >
                     {a.is_active ? "Deactivate" : "Activate"}
                   </Button>
                 </div>
               </li>
             ))}
-            {state.items?.length === 0 ? (
-              <li className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-muted">
-                No bank accounts configured yet. Customers cannot pay until at least one account is active.
+            {state.items?.length === 0 && (
+              <li className="rounded-2xl border border-dashed border-line/70 bg-surface/30 p-8 text-center text-xs text-muted">
+                No bank deposit accounts configured yet. Offline wire payments cannot be accepted until at least one account is active.
               </li>
-            ) : null}
+            )}
           </ul>
         )}
       </div>
@@ -351,25 +374,57 @@ export function BankAccounts() {
       <AdminModal
         open={open}
         onClose={() => setOpen(false)}
-        title="Add Bank Account"
-        subtitle="Configure deposit bank details for customer bank transfer payments"
+        title="Add Deposit Bank Account"
+        subtitle="Configure receiving bank details for customer offline bank wire transfers"
         size="md"
       >
-        <form
-          onSubmit={add}
-          noValidate
-          className="grid gap-4"
-          aria-label="Add bank account"
-        >
-          {field("bank_name", "Bank name")}
-          {field("account_name", "Account holder / Beneficiary")}
-          {field("account_number", "Account number")}
-          {field("swift", "SWIFT/BIC (optional)")}
-          {field("instructions", "Transfer instructions shown to customer (optional)")}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-line/40">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={busy}>
-              {busy ? "Saving account…" : "Save bank account"}
+        <form onSubmit={add} noValidate className="space-y-4" aria-label="Add bank account">
+          <TextField
+            id="ba-bank_name"
+            label="Bank Name"
+            placeholder="e.g. KB Kookmin Bank, Shinhan Bank"
+            value={form.bank_name}
+            onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+            error={errors.bank_name}
+          />
+          <TextField
+            id="ba-account_name"
+            label="Account Beneficiary Holder Name"
+            placeholder="e.g. AR Entertainment Co., Ltd."
+            value={form.account_name}
+            onChange={(e) => setForm({ ...form, account_name: e.target.value })}
+            error={errors.account_name}
+          />
+          <TextField
+            id="ba-account_number"
+            label="Account Number"
+            placeholder="e.g. 123-4567-89012"
+            value={form.account_number}
+            onChange={(e) => setForm({ ...form, account_number: e.target.value })}
+            error={errors.account_number}
+          />
+          <TextField
+            id="ba-swift"
+            label="SWIFT / BIC Code (Optional)"
+            placeholder="e.g. CZNBKRSE"
+            value={form.swift}
+            onChange={(e) => setForm({ ...form, swift: e.target.value })}
+          />
+          <TextArea
+            id="ba-instructions"
+            label="Special Wire Transfer Instructions (Optional)"
+            placeholder="e.g. Please put your 6-digit booking code as the wire transfer remark"
+            rows={2}
+            value={form.instructions}
+            onChange={(e) => setForm({ ...form, instructions: e.target.value })}
+          />
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-line/60">
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={busy} className="shadow-sm">
+              {busy ? "Saving…" : "Save Bank Account"}
             </Button>
           </div>
         </form>
