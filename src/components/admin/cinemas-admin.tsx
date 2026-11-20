@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Armchair, Building2, Edit2, MapPin, Phone, Plus, Sparkles, Trash2, Video } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, Armchair, Building2, Edit2, Plus, Trash2, Video } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { useAuth } from "@/providers/auth-provider";
-import { Button } from "@/components/ui/button";
-import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Panel, Pill, Section, TextArea, TextField, useAction, useLoad } from "./kit";
+import { Button, LinkButton } from "@/components/ui/button";
+import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Panel, Pill, Section, SelectField, TextArea, TextField, useAction, useLoad } from "./kit";
 import { routes } from "@/lib/routes";
-import { cn } from "@/lib/utils";
 
 interface Room {
   id: string;
@@ -37,19 +37,12 @@ interface Cinema {
 export function CinemasAdmin() {
   const { can } = useAuth();
   const act = useAction();
-  const [editing, setEditing] = useState<string | null>(null);
-  const [createdId, setCreatedId] = useState<string | null>(null);
   const router = useRouter();
   const openLayout = (room: Room) => router.push(routes.roomSeats(room.id));
   const [roomPickerFor, setRoomPickerFor] = useState<Cinema | null>(null);
-
-  const open = (id: string | null) => {
-    setCreatedId(null);
-    setEditing(id);
-  };
+  const open = (id: string) => router.push(routes.editCinema(id));
 
   const list = useLoad(() => adm.get<Cinema[]>("/cinemas").then((r) => r.data), "cinemas");
-  const selected = Array.isArray(list.data) ? (list.data.find((c) => c.id === editing) ?? null) : null;
 
   return (
     <section className="space-y-6">
@@ -60,10 +53,10 @@ export function CinemasAdmin() {
         hint="Manage multiplex venues, screening halls, facilities, and dynamic seat layout grid configurations."
         action={
           can("cinemas.manage") && can("settings.manage") ? (
-            <Button onClick={() => open("new")} className="shadow-sm">
+            <LinkButton href={routes.newCinema} className="shadow-sm">
               <Plus className="size-4 mr-1.5" aria-hidden />
               <span>New cinema venue</span>
-            </Button>
+            </LinkButton>
           ) : undefined
         }
       />
@@ -208,21 +201,6 @@ export function CinemasAdmin() {
         )}
       </Section>
 
-      {editing ? (
-        <CinemaEditor
-          key={editing === "new" || editing === createdId ? "created" : editing}
-          cinema={editing === "new" ? null : selected}
-          onClose={() => open(null)}
-          onSaved={(id) => {
-            list.reload();
-            if (id) {
-              setCreatedId(id);
-              setEditing(id);
-            }
-          }}
-        />
-      ) : null}
-
       {roomPickerFor ? (
         <AdminModal
           open={true}
@@ -259,6 +237,60 @@ export function CinemasAdmin() {
           </div>
         </AdminModal>
       ) : null}
+    </section>
+  );
+}
+
+/**
+ * Full-page cinema editor: /admin/cinemas/new/ to create the venue, /admin/cinemas/edit/?id=… after the first save,
+ * where photos and screening halls (added and edited in a dialog) become available.
+ */
+export function CinemaEditorPage() {
+  const id = useSearchParams().get("id");
+  const router = useRouter();
+  const cinema = useLoad(
+    (signal) =>
+      id ? adm.get<Cinema>(`/cinemas/${encodeURIComponent(id)}`, undefined, signal).then((r) => r.data) : Promise.resolve(null),
+    `cinema-${id ?? "new"}`,
+  );
+
+  // Keep showing the last loaded copy while a reload after save is in flight, so the form does not flash away.
+  const [last, setLast] = useState<Cinema | null>(null);
+  if (cinema.data && cinema.data !== last) setLast(cinema.data);
+  const current = cinema.data ?? (last?.id === id ? last : null);
+
+  if (id && !current) {
+    return <p className="py-16 text-center text-sm text-muted">{cinema.error ?? "Loading cinema…"}</p>;
+  }
+
+  return (
+    <CinemaEditor
+      key={id ?? "new"}
+      cinema={current}
+      onClose={() => router.push("/admin/cinemas/")}
+      onSaved={(savedId) => {
+        if (savedId && savedId !== id) router.replace(routes.editCinema(savedId));
+        else cinema.reload();
+      }}
+    />
+  );
+}
+
+function PageShell({ title, subtitle, children, onClose }: { title: string; subtitle?: string; children: ReactNode; onClose: () => void }) {
+  return (
+    <section className="space-y-6">
+      <Link
+        href="/admin/cinemas/"
+        onClick={(e) => {
+          e.preventDefault();
+          onClose();
+        }}
+        className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted hover:text-accent-text"
+      >
+        <ArrowLeft className="size-4" aria-hidden /> Back to cinemas
+      </Link>
+      <PageTitle title={title} eyebrow="Cinema Operations" icon={Building2} hint={subtitle} />
+      {children}
     </section>
   );
 }
@@ -309,15 +341,17 @@ function CinemaEditor({
   }
 
   return (
-    <AdminModal
-      open={true}
+    <PageShell
       onClose={onClose}
-      title={cinema ? `Edit: ${cinema.name}` : "New Cinema Complex"}
-      subtitle="Venue location, operating status, screening halls, and gallery photos"
-      size="xl"
+      title={cinema ? cinema.name : "New Cinema Venue"}
+      subtitle={
+        cinema
+          ? "Venue details, gallery photos and screening halls."
+          : "Start with the venue details. Photos and screening halls can be added after the first save."
+      }
     >
       <div className="space-y-6">
-        <form onSubmit={save} noValidate className="space-y-5" aria-label="Cinema form">
+        <form onSubmit={save} noValidate className="space-y-5 rounded-2xl border border-line/80 bg-elevated p-5 sm:p-6" aria-label="Cinema form">
           <Feedback error={act.error} note={act.note} />
 
           <div className="rounded-2xl border border-line/60 bg-surface/40 p-5 space-y-4">
@@ -411,11 +445,11 @@ function CinemaEditor({
           <div className="flex items-center gap-3 border-t border-line/60 pt-4">
             {canEdit && (
               <Button type="submit" disabled={act.busy} className="shadow-sm">
-                {act.busy ? "Saving…" : "Save Venue"}
+                {act.busy ? "Saving…" : cinema ? "Save Venue" : "Create Venue"}
               </Button>
             )}
             <Button type="button" variant="ghost" onClick={onClose} className="cursor-pointer">
-              Close
+              Back to list
             </Button>
           </div>
         </form>
@@ -427,7 +461,7 @@ function CinemaEditor({
           </div>
         )}
       </div>
-    </AdminModal>
+    </PageShell>
   );
 }
 
@@ -498,20 +532,34 @@ function Photos({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void }
   );
 }
 
+const SCREEN_TYPES = ["Standard", "Premium", "IMAX", "Dolby Atmos", "4DX", "ScreenX", "VIP"];
+
 function Rooms({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void }) {
   const { can } = useAuth();
   const act = useAction();
-  const [name, setName] = useState("");
   const router = useRouter();
   const canManage = can("rooms.manage");
+  // "new" opens an empty dialog; a room opens it filled in for editing.
+  const [dialog, setDialog] = useState<Room | "new" | null>(null);
 
   return (
-    <Panel title="Screening Halls & Auditoriums">
+    <Panel
+      title="Screening Halls & Auditoriums"
+      action={
+        canManage ? (
+          <Button size="sm" onClick={() => setDialog("new")} className="shadow-sm">
+            <Plus className="size-4 mr-1.5" aria-hidden />
+            <span>Add hall</span>
+          </Button>
+        ) : undefined
+      }
+    >
       <Feedback error={act.error} note={act.note} />
       <DataTable
         rows={cinema.rooms}
         rowKey={(r) => r.id}
-        empty="No screening rooms configured yet."
+        onRowClick={canManage ? (r) => setDialog(r) : undefined}
+        empty="No screening halls yet. Add the first one to start building its seat layout."
         columns={[
           {
             key: "n",
@@ -535,11 +583,7 @@ function Rooms({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void })
           {
             key: "a",
             label: "Status",
-            render: (r) => (
-              <Pill tone={r.is_active ? "good" : "neutral"}>
-                {r.is_active ? "Active" : "Inactive"}
-              </Pill>
-            ),
+            render: (r) => <Pill tone={r.is_active ? "good" : "neutral"}>{r.is_active ? "Active" : "Inactive"}</Pill>,
           },
           {
             key: "x",
@@ -547,7 +591,16 @@ function Rooms({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void })
             className: "text-right",
             render: (r) =>
               canManage ? (
-                <div className="flex items-center justify-end gap-1.5">
+                <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setDialog(r)}
+                    className="h-8 px-2.5 text-xs font-semibold"
+                  >
+                    <Edit2 className="size-3.5 mr-1" />
+                    <span>Edit</span>
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
@@ -560,26 +613,11 @@ function Rooms({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void })
                   <Button
                     size="sm"
                     variant="ghost"
-                    onClick={async () => {
-                      if (
-                        await act.run(() =>
-                          adm.patch(`/rooms/${r.id}`, { is_active: !r.is_active }),
-                        )
-                      ) {
-                        onChanged();
-                      }
-                    }}
-                    className="h-8 px-2 text-xs text-muted hover:text-foreground"
-                  >
-                    {r.is_active ? "Deactivate" : "Activate"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
+                    aria-label={`Delete ${r.name}`}
                     onClick={async () => {
                       if (
                         window.confirm(`Delete hall "${r.name}"?`) &&
-                        (await act.run(() => adm.del(`/rooms/${r.id}`), "Room deleted."))
+                        (await act.run(() => adm.del(`/rooms/${r.id}`), "Hall deleted."))
                       ) {
                         onChanged();
                       }
@@ -594,39 +632,99 @@ function Rooms({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void })
         ]}
       />
 
-      {canManage && (
-        <form
-          className="mt-5 flex flex-wrap items-end gap-3 rounded-2xl border border-line/60 bg-surface/50 p-4"
-          aria-label="Add room"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (
-              await act.run(
-                () => adm.post(`/cinemas/${cinema.id}/rooms`, { name, screen_type: "Standard" }),
-                "Room added.",
-              )
-            ) {
-              setName("");
-              onChanged();
-            }
+      {dialog ? (
+        <RoomDialog
+          key={dialog === "new" ? "new" : dialog.id}
+          cinema={cinema}
+          room={dialog === "new" ? null : dialog}
+          onClose={() => setDialog(null)}
+          onSaved={() => {
+            setDialog(null);
+            onChanged();
           }}
-        >
-          <div className="min-w-48 flex-1">
-            <TextField
-              id="room-name"
-              label="Add New Screening Hall"
-              placeholder="e.g. Hall 4 - Dolby Atmos Laser"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              error={act.fields.name}
-            />
-          </div>
-          <Button type="submit" disabled={act.busy || !name.trim()} className="shadow-sm">
-            <Plus className="size-4 mr-1.5" />
-            <span>Create Hall</span>
-          </Button>
-        </form>
-      )}
+        />
+      ) : null}
     </Panel>
+  );
+}
+
+/** Add or edit one screening hall. The seat grid itself is built on the seat layout page. */
+function RoomDialog({
+  cinema,
+  room,
+  onClose,
+  onSaved,
+}: {
+  cinema: Cinema;
+  room: Room | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const act = useAction();
+  const [f, setF] = useState({
+    name: room?.name ?? "",
+    screen_type: room?.screen_type ?? "Standard",
+    is_active: room?.is_active ?? true,
+  });
+  const types = SCREEN_TYPES.includes(f.screen_type) ? SCREEN_TYPES : [f.screen_type, ...SCREEN_TYPES];
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const body = { ...f, name: f.name.trim() };
+    const ok = await act.run(
+      () => (room ? adm.patch(`/rooms/${room.id}`, body) : adm.post(`/cinemas/${cinema.id}/rooms`, body)),
+      room ? "Hall saved." : "Hall added.",
+    );
+    if (ok) onSaved();
+  }
+
+  return (
+    <AdminModal
+      open
+      onClose={onClose}
+      title={room ? `Edit hall: ${room.name}` : "Add screening hall"}
+      subtitle={room ? cinema.name : `New hall at ${cinema.name}. Build its seats on the seat layout page after saving.`}
+      size="md"
+    >
+      <form onSubmit={save} noValidate className="space-y-5" aria-label="Screening hall form">
+        <Feedback error={act.error} note={act.note} />
+        <TextField
+          id="room-name"
+          label="Hall name"
+          placeholder="e.g. Hall 4"
+          value={f.name}
+          onChange={(e) => setF((x) => ({ ...x, name: e.target.value }))}
+          error={act.fields.name}
+          autoFocus
+        />
+        <SelectField
+          id="room-type"
+          label="Projection / screen"
+          value={f.screen_type}
+          onChange={(e) => setF((x) => ({ ...x, screen_type: e.target.value }))}
+          error={act.fields.screen_type}
+        >
+          {types.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </SelectField>
+        <CheckField
+          id="room-active"
+          label="Active (can be used for showtimes)"
+          checked={f.is_active}
+          onChange={(e) => setF((x) => ({ ...x, is_active: e.target.checked }))}
+        />
+        <div className="flex items-center gap-3 border-t border-line/60 pt-4">
+          <Button type="submit" disabled={act.busy || !f.name.trim()} className="shadow-sm">
+            {act.busy ? "Saving…" : room ? "Save hall" : "Add hall"}
+          </Button>
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </AdminModal>
   );
 }

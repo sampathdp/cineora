@@ -6,6 +6,7 @@ import { Armchair, ArrowLeft, Ban, Box, MousePointerClick, Paintbrush, Plus, Rot
 import { adm } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
 import { Feedback, PageTitle, Section, useAction, useLoad } from "./kit";
+import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 
 interface CinemaRooms { id: string; name: string; rooms: { id: string; name: string }[] }
@@ -25,7 +26,7 @@ export function SeatLayoutPage({ roomId }: { roomId: string }) {
         const cinema = cinemas.find((c) => c.rooms.some((r) => r.id === roomId));
         const room = cinema?.rooms.find((r) => r.id === roomId);
         if (!cinema || !room) return <p className="text-sm text-muted">Room not found, or you are not assigned to its cinema.</p>;
-        return <SeatLayout room={room} cinemaName={cinema.name} />;
+        return <SeatLayout room={room} cinemaName={cinema.name} cinemaId={cinema.id} />;
       }}
     </Section>
   );
@@ -42,7 +43,7 @@ const fallbackStyle = "border-black/25 bg-sky-400/30 text-foreground hover:bg-sk
 const styleFor = (category: string) => catStyle[category.toLowerCase()] ?? fallbackStyle;
 
 /** Rows-and-seats grid editor with live ticket-booking visual preview & per-seat manual overrides */
-function SeatLayout({ room, cinemaName }: { room: { id: string; name: string }; cinemaName: string }) {
+function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: string }; cinemaName: string; cinemaId: string }) {
   const router = useRouter();
   const act = useAction();
   const [view3d, setView3d] = useState(true);
@@ -321,8 +322,8 @@ function SeatLayout({ room, cinemaName }: { room: { id: string; name: string }; 
         title={`Seat Layout: ${room.name}`}
         icon={Armchair}
         hint="Configure rows, capacities, and customize individual seats with live ticket booking preview"
-        breadcrumbs={[{ label: "Cinemas", href: "/admin/cinemas" }, { label: cinemaName }, { label: room.name }]}
-        action={<Button variant="secondary" onClick={() => router.push("/admin/cinemas")}><ArrowLeft className="size-4" aria-hidden /> Back to cinemas</Button>}
+        breadcrumbs={[{ label: "Cinemas", href: "/admin/cinemas" }, { label: cinemaName, href: routes.editCinema(cinemaId) }, { label: room.name }]}
+        action={<Button variant="secondary" onClick={() => router.push(routes.editCinema(cinemaId))}><ArrowLeft className="size-4" aria-hidden /> Back to {cinemaName}</Button>}
       />
       <Feedback error={act.error} note={act.note} />
       <Section loading={current.loading || cats.loading} error={current.error ?? cats.error} data={cats.data}>
