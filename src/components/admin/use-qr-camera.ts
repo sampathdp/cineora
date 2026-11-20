@@ -11,6 +11,7 @@ export type CameraState = "off" | "starting" | "on" | "denied" | "insecure";
  */
 export function useQrCamera(onCode: (code: string) => void) {
   const [camera, setCamera] = useState<CameraState>("off");
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -34,15 +35,34 @@ export function useQrCamera(onCode: (code: string) => void) {
       return;
     }
     setCamera("starting");
+    setCameraError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      const stream = await navigator.mediaDevices
+        .getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false })
+        // Some phones reject the facing-mode hint; any camera is better than none.
+        .catch((e) => (e?.name === "OverconstrainedError" ? navigator.mediaDevices.getUserMedia({ video: true, audio: false }) : Promise.reject(e)));
       streamRef.current = stream;
       const video = videoRef.current;
       if (!video) return stop();
+      video.setAttribute("playsinline", "true");
+      video.muted = true;
       video.srcObject = stream;
-      await video.play();
+      // play() can hang on some Android builds; the frames still arrive, so do not wait for it forever.
+      await Promise.race([video.play().catch(() => undefined), new Promise((r) => setTimeout(r, 1500))]);
       setCamera("on");
-    } catch {
+    } catch (e) {
+      const name = e instanceof DOMException ? e.name : "";
+      setCameraError(
+        name === "NotAllowedError"
+          ? "Camera permission was denied. Allow it for this site in the browser settings, then try again."
+          : name === "NotReadableError"
+            ? "The camera is in use by another app. Close it and try again."
+            : name === "NotFoundError"
+              ? "No camera found on this device."
+              : `Could not start the camera${e instanceof Error && e.message ? `: ${e.message}` : "."}`,
+      );
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
       setCamera("denied");
     }
   }, [stop]);
@@ -68,5 +88,5 @@ export function useQrCamera(onCode: (code: string) => void) {
     return () => clearInterval(timer);
   }, [camera]);
 
-  return { camera, start, stop, videoRef, canvasRef };
+  return { camera, cameraError, start, stop, videoRef, canvasRef };
 }

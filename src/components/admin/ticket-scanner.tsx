@@ -81,7 +81,7 @@ export function TicketScanner() {
     [loadRecent, show],
   );
 
-  const { camera, start: startCamera, stop: stopCamera, videoRef, canvasRef } = useQrCamera((code) => void validate(scanInput(code)));
+  const { camera, cameraError, start: startCamera, stop: stopCamera, videoRef, canvasRef } = useQrCamera((code) => void validate(scanInput(code)));
 
   // --- Paired phone camera ---
   const [pair, setPair] = useState<{ token: string; url: string; qr: string } | null>(null);
@@ -165,7 +165,8 @@ export function TicketScanner() {
               ref={videoRef}
               playsInline
               muted
-              className={cn("aspect-video w-full object-cover", camera !== "on" && "hidden")}
+              autoPlay
+              className={cn("aspect-video w-full object-cover", camera !== "on" && "absolute inset-0 opacity-0")}
               aria-label="Camera preview"
             />
 
@@ -256,7 +257,7 @@ export function TicketScanner() {
             <FormMessage>This browser only allows the camera on https:// pages. Use &quot;Use phone as camera&quot; or manual entry.</FormMessage>
           )}
           {camera === "denied" && (
-            <FormMessage>Camera permission was denied. Please allow camera access in browser settings or enter ticket code manually.</FormMessage>
+            <FormMessage>{cameraError}</FormMessage>
           )}
 
           {/* Manual Entry Form */}

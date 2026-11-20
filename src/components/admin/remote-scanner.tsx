@@ -68,7 +68,7 @@ export function RemoteScanner() {
     [path],
   );
 
-  const { camera, start, stop, videoRef, canvasRef } = useQrCamera((c) => void onCode(c));
+  const { camera, cameraError, start, stop, videoRef, canvasRef } = useQrCamera((c) => void onCode(c));
   useEffect(() => {
     if (link === "dead") stop();
   }, [link, stop]);
@@ -98,8 +98,9 @@ export function RemoteScanner() {
         </span>
       </header>
 
-      <div className="relative overflow-hidden rounded-3xl bg-black">
-        <video ref={videoRef} playsInline muted className={cn("aspect-[3/4] w-full object-cover", camera !== "on" && "hidden")} aria-label="Camera preview" />
+      <div className="relative aspect-[3/4] overflow-hidden rounded-3xl bg-black">
+        {/* Always in the layout: some Android browsers never start a video that is display:none. */}
+        <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 size-full object-cover" aria-label="Camera preview" />
         <canvas ref={canvasRef} className="hidden" />
         {camera === "on" && (
           <div className="pointer-events-none absolute inset-0 grid place-items-center">
@@ -107,11 +108,11 @@ export function RemoteScanner() {
           </div>
         )}
         {camera !== "on" && (
-          <div className="grid aspect-[3/4] place-items-center p-6 text-center text-white/80">
+          <div className="absolute inset-0 grid place-items-center bg-black p-6 text-center text-white/80">
             <div className="space-y-4">
               <Camera className="mx-auto size-10" />
               {camera === "insecure" && <p className="text-sm">The camera needs this page to be opened over https://.</p>}
-              {camera === "denied" && <p className="text-sm">Camera permission was denied. Allow it in the browser settings, then try again.</p>}
+              {camera === "denied" && <p className="text-sm">{cameraError}</p>}
               <Button onClick={start} disabled={camera === "starting" || link !== "ok"} size="lg">
                 {camera === "starting" ? "Starting…" : "Start scanning"}
               </Button>
