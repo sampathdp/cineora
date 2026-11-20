@@ -133,6 +133,12 @@ jobs:
               # Dotfiles, except ACME challenges.
               RewriteRule (^|/)\.(?!well-known/) - [F,L]
 
+              # Real files and folders of the export are served as-is. Without this, the redirects below catch
+              # Next's own payload files (e.g. /movies/index.txt) and send them to /movies/view/?slug=index.txt.
+              RewriteCond %{REQUEST_FILENAME} -f [OR]
+              RewriteCond %{REQUEST_FILENAME} -d
+              RewriteRule ^ - [L]
+
               # Old pretty URLs (and links in already-sent emails) -> static pages that read the id from the query.
               RewriteRule ^movies/(?!view/?$)([^/]+)/?$ /movies/view/?slug=$1 [R=301,L]
               RewriteRule ^events/(?!view/?$)([^/]+)/?$ /events/view/?slug=$1 [R=301,L]
