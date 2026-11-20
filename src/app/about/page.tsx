@@ -1,94 +1,276 @@
 import type { Metadata } from "next";
-import { Clapperboard, Film, HeartHandshake, MessageCircle, QrCode, Users } from "lucide-react";
-import { PageHero } from "@/components/ui/section-heading";
-import { LinkButton, buttonClass } from "@/components/ui/button";
-import { Art } from "@/components/ui/art";
+import Image from "next/image";
+import { Mail, MessageCircle, Phone } from "lucide-react";
+import { LinkButton } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
+import { CityClock } from "@/components/about/city-clock";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "AR Entertainment brings Sri Lankan films to the big screen in South Korea.",
+  description:
+    "AR Entertainment brings Sri Lankan films to cinema screens in South Korea.",
   openGraph: { title: "About | AR ENTERTAINMENT" },
 };
 
-const WHATSAPP_URL = "https://wa.me/821043937461";
+const PHONE = { label: "+82 10-4828-7461", href: "tel:+821048287461" };
+const WHATSAPP = {
+  label: "+82 10-4393-7461",
+  href: "https://wa.me/821043937461",
+};
+const EMAIL = {
+  label: "arentertainmentkr@gmail.com",
+  href: "mailto:arentertainmentkr@gmail.com",
+};
 
-const features = [
-  { icon: Film, title: "Sri Lankan premieres", text: "New Sinhala films on a real cinema screen in Korea, the way they were made to be seen." },
-  { icon: Clapperboard, title: "Partner cinemas", text: "Screenings in multiplexes such as CGV, with proper sound, comfortable seats and a full house." },
-  { icon: Users, title: "Community nights", text: "Every premiere is a get-together for Sri Lankans living, working and studying across Korea." },
-  { icon: QrCode, title: "Simple booking", text: "Choose your seats online, pay by bank transfer and get a QR ticket on your phone." },
-  { icon: HeartHandshake, title: "Backing filmmakers", text: "Each ticket helps Sri Lankan films reach audiences beyond home." },
-  { icon: MessageCircle, title: "Easy to reach", text: "Questions about a show? Call, WhatsApp or message us on Facebook." },
+const cities = [
+  {
+    name: "Colombo",
+    line: "Where the films are made.",
+    image: "/images/about/colombo.jpg",
+    alt: "Street in Colombo Fort with three-wheelers and a colonial-era building",
+    timeZone: "Asia/Colombo",
+    offset: "UTC+5:30",
+  },
+  {
+    name: "Ansan",
+    line: "Where we watch them together.",
+    image: "/images/about/ansan.jpg",
+    alt: "Ansan Station in Gyeonggi-do, South Korea",
+    timeZone: "Asia/Seoul",
+    offset: "UTC+9",
+  },
+];
+
+const night = [
+  {
+    title: "Pick your seats",
+    text: "Choose the film, the showtime and your seats on this site.",
+  },
+  {
+    title: "Pay by bank transfer",
+    text: "Send the amount to our account. We check it and confirm your booking.",
+  },
+  {
+    title: "Get your QR ticket",
+    text: "One ticket per seat, on your phone or printed.",
+  },
+  {
+    title: "Meet everyone there",
+    text: "Arrive early, find friends from home, and watch the film with a full house.",
+  },
+];
+
+const contacts = [
+  { icon: Phone, kind: "Call", value: PHONE.label, href: PHONE.href },
+  {
+    icon: MessageCircle,
+    kind: "WhatsApp",
+    value: WHATSAPP.label,
+    href: WHATSAPP.href,
+  },
+  { icon: Mail, kind: "Email", value: EMAIL.label, href: EMAIL.href },
 ];
 
 export default function AboutPage() {
   return (
     <>
-      <PageHero
-        eyebrow="Our story"
-        title="About AR Entertainment"
-        description="Bringing Sri Lankan cinema to the big screen in South Korea."
-      />
-      <section className="container-page grid items-center gap-10 py-14 lg:grid-cols-2 lg:py-20">
+      {/* The screen: the place every story on this page ends up. */}
+      <section className="relative isolate flex min-h-[78svh] items-end overflow-hidden">
+        <Image
+          src="/images/about/cinema-about.jpg"
+          alt="An empty cinema auditorium facing the screen"
+          fill
+          priority
+          sizes="100vw"
+          className="-z-10 object-cover object-center"
+        />
+        <div className="absolute inset-0 -z-10 bg-black/60" aria-hidden />
+        <div className="container-page pb-14 pt-32 text-white lg:pb-20">
+          <h1 className="display max-w-4xl text-5xl leading-[0.95] sm:text-7xl lg:text-8xl">
+            Sri Lankan films on Korean screens
+          </h1>
+          <p className="mt-8 max-w-xl text-lg text-white/90">
+            AR Entertainment brings new Sinhala films to cinemas across South
+            Korea, so the community here can watch them together, on the big
+            screen.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <LinkButton href="/movies" size="lg">
+              See what&apos;s showing
+            </LinkButton>
+            <LinkButton href="/contact" size="lg" variant="onDark">
+              Contact us
+            </LinkButton>
+          </div>
+        </div>
+      </section>
+
+      {/* Two cities, one evening: the live clocks show what time it is at home right now. */}
+      <section className="container-page py-20 lg:py-32">
         <Reveal>
-          <div className="aspect-[4/3] overflow-hidden rounded-card border border-line shadow-card">
-            <Art
-              art={{
-                from: "#3a1a08",
-                to: "#07060a",
-                accent: "#f0782b",
-                motif: "city",
-                image: "/images/about/cinema-about.jpg",
-              }}
-              seed="about"
-              label="Cinema auditorium and seating"
+          <h2 className="display text-4xl sm:text-5xl lg:text-6xl">
+            From Colombo to Ansan
+          </h2>
+          <p className="mt-6 max-w-2xl text-lg">
+            A 6:00 PM show in Ansan starts at 2:30 PM back home. We close that
+            distance one screening at a time.
+          </p>
+        </Reveal>
+        <div className="mt-12 grid gap-10 md:grid-cols-2 lg:gap-8">
+          {cities.map((city, i) => (
+            <Reveal key={city.name} delay={0.08 * (i + 1)}>
+              <figure>
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  <Image
+                    src={city.image}
+                    alt={city.alt}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover transition-transform duration-700 hover:scale-[1.03]"
+                  />
+                </div>
+                <figcaption className="mt-5">
+                  <p className="display text-3xl">{city.name}</p>
+                  <p className="mt-1 text-muted">{city.line}</p>
+                  <div className="mt-4">
+                    <CityClock timeZone={city.timeZone} offset={city.offset} />
+                  </div>
+                </figcaption>
+              </figure>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      {/* Who we are. */}
+      <section className="bg-surface py-20 lg:py-32">
+        <div className="container-page grid gap-10 lg:grid-cols-12 lg:gap-16">
+          <Reveal className="lg:col-span-6">
+            <h2 className="display text-4xl sm:text-5xl lg:text-6xl">
+              Run by Sri Lankans in Korea
+            </h2>
+            <p className="mt-8 text-2xl leading-snug sm:text-3xl">
+              For Sri Lankans who live, work and study here, a premiere night
+              means hearing our own language in a full cinema.
+            </p>
+          </Reveal>
+          <Reveal className="lg:col-span-5 lg:col-start-8 lg:pt-3" delay={0.1}>
+            <div className="space-y-5 text-lg">
+              <p>
+                AR Entertainment (엔터코리아 AR) is a film promoter based in
+                South Korea, led by Anjana Ravinath. We bring new Sri Lankan
+                releases to Korean cinemas and look after everything from the
+                booking to the night itself.
+              </p>
+              <p>
+                We work with cinemas such as CGV to host premieres and special
+                screenings, with proper sound, proper seats and a room full of
+                people from home. Recent shows include the Sinhala film “එදා රෑ”
+                at CGV Ansan.
+              </p>
+              <p>
+                Every ticket also helps Sri Lankan filmmakers reach an audience
+                beyond the island.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* How a premiere night works. */}
+      <section className="container-page grid gap-12 py-20 lg:grid-cols-12 lg:py-32">
+        <Reveal className="lg:col-span-5">
+          <div className="relative aspect-[4/5] overflow-hidden">
+            <Image
+              src="/images/about/intro-2.jpg"
+              alt="Striped paper bags of popcorn"
+              fill
+              sizes="(max-width: 1024px) 100vw, 40vw"
+              className="object-cover"
             />
           </div>
         </Reveal>
-        <Reveal delay={0.1}>
-          <h2 className="display text-4xl sm:text-5xl">A taste of home, on the big screen</h2>
-          <p className="mt-4 text-muted">
-            AR Entertainment (엔터코리아 AR) is a Korea-based film promoter. We bring Sri Lankan films to cinemas across South
-            Korea, so the Sri Lankan community here can watch new releases together, in our own language, on a proper screen.
-          </p>
-          <p className="mt-3 text-muted">
-            We work with local cinemas such as CGV to host premieres and special screenings. Recent shows include the Sinhala film
-            “එදා රෑ” at CGV Ansan.
-          </p>
-          <p className="mt-3 text-muted">Led by Anjana Ravinath, AR Entertainment is run by Sri Lankans in Korea, for Sri Lankans in Korea.</p>
-          <LinkButton href="/movies" size="lg" className="mt-6">
-            See what&apos;s on
-          </LinkButton>
-        </Reveal>
+        <div className="lg:col-span-6 lg:col-start-7 lg:self-center">
+          <Reveal>
+            <h2 className="display text-4xl sm:text-5xl lg:text-6xl">
+              How a premiere night works
+            </h2>
+          </Reveal>
+          <ol className="mt-10 space-y-8">
+            {night.map((step, i) => (
+              <li key={step.title}>
+                <Reveal delay={0.07 * (i + 1)}>
+                  <h3 className="display text-2xl sm:text-3xl">{step.title}</h3>
+                  <p className="mt-2 text-lg">{step.text}</p>
+                </Reveal>
+              </li>
+            ))}
+          </ol>
+          <Reveal delay={0.35}>
+            <LinkButton href="/movies" size="lg" className="mt-10">
+              Book a seat
+            </LinkButton>
+          </Reveal>
+        </div>
       </section>
-      <section className="border-t border-line bg-surface py-14 lg:py-20">
-        <div className="container-page">
-          <h2 className="display text-center text-4xl sm:text-5xl">What we do</h2>
-          <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {features.map(({ icon: Icon, title, text }) => (
-              <li key={title} className="rounded-card border border-line bg-elevated p-6">
-                <Icon className="size-8 text-accent-text" aria-hidden />
-                <h3 className="display mt-4 text-2xl">{title}</h3>
-                <p className="mt-2 text-muted">{text}</p>
+
+      {/* Close: a full field of the brand colour with every way to reach us. */}
+      <section className="bg-accent py-20 text-on-accent lg:py-28">
+        <div className="container-page grid gap-12 lg:grid-cols-12">
+          <Reveal className="lg:col-span-6">
+            <h2 className="display text-4xl sm:text-5xl lg:text-6xl">
+              Bring a film to your city
+            </h2>
+            <p className="mt-6 max-w-lg text-lg">
+              Want a screening near you, tickets for a group, or to partner with
+              us on a release? Talk to us.
+            </p>
+          </Reveal>
+          <ul className="space-y-6 lg:col-span-6">
+            {contacts.map(({ icon: Icon, kind, value, href }, i) => (
+              <li key={kind}>
+                <Reveal delay={0.07 * (i + 1)}>
+                  <a
+                    href={href}
+                    {...(href.startsWith("http")
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                    className="group flex items-center gap-4 rounded-control outline-offset-4"
+                  >
+                    <span className="grid size-12 shrink-0 place-items-center rounded-full bg-on-accent text-accent transition-transform group-hover:scale-110">
+                      <Icon className="size-5" aria-hidden />
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold">
+                        {kind}
+                      </span>
+                      <span className="block break-all text-xl font-semibold underline-offset-4 group-hover:underline sm:text-2xl">
+                        {value}
+                      </span>
+                    </span>
+                  </a>
+                </Reveal>
               </li>
             ))}
           </ul>
         </div>
-      </section>
-      <section className="container-page py-14 text-center lg:py-20">
-        <h2 className="display text-4xl sm:text-5xl">Bring a film to your city</h2>
-        <p className="mx-auto mt-4 max-w-2xl text-muted">
-          Want a screening near you, group tickets, or to partner with us on a release? Get in touch.
-        </p>
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <LinkButton href="/contact" size="lg">
-            Contact us
-          </LinkButton>
-          <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "lg")}>
-            <MessageCircle className="size-5" aria-hidden /> WhatsApp us
+        <p className="container-page mt-16 text-sm opacity-80">
+          Photos: “Colombo 02” by Bernard Gagnon,{" "}
+          <a
+            className="underline"
+            href="https://creativecommons.org/licenses/by-sa/3.0/"
+          >
+            CC BY-SA 3.0
           </a>
-        </div>
+          ; “Ansan fall 2014 06” by Piotrus,{" "}
+          <a
+            className="underline"
+            href="https://creativecommons.org/licenses/by-sa/4.0/"
+          >
+            CC BY-SA 4.0
+          </a>
+          ; both via Wikimedia Commons.
+        </p>
       </section>
     </>
   );
