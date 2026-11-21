@@ -224,6 +224,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/showtimes', [ShowtimeAdminController::class, 'store']);
         Route::post('/showtimes/bulk', [ShowtimeAdminController::class, 'storeMany']);
         Route::post('/showtimes/bulk-delete', [ShowtimeAdminController::class, 'destroyMany']);
+        Route::post('/showtimes/bulk-publish', [ShowtimeAdminController::class, 'publishMany']);
         Route::get('/showtimes/{showtime}', [ShowtimeAdminController::class, 'show']);
         Route::get('/showtimes/{showtime}/seats', [ShowtimeAdminController::class, 'seats']);
         Route::patch('/showtimes/{showtime}', [ShowtimeAdminController::class, 'update']);

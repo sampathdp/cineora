@@ -182,6 +182,49 @@ class ShowtimeAdminController extends Controller
         return ApiResponse::success(['deleted' => $deleted, 'skipped' => $skipped], count($deleted).' showtime(s) deleted.');
     }
 
+    /**
+     * Puts many draft showtimes on sale: either the given `ids` (max 100), or with `all: true` every draft the caller
+     * manages (optionally one `cinema`). Each is published on its own, so one that fails a check is reported as skipped.
+     */
+    public function publishMany(Request $request): JsonResponse
+    {
+        Gate::authorize('viewAny', Showtime::class);
+        $v = $request->validate([
+            'all' => ['sometimes', 'boolean'],
+            'cinema' => ['sometimes', 'nullable', 'string', 'size:26'],
+            'ids' => ['required_without:all', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['string', 'size:26', 'distinct'],
+        ]);
+        $user = $request->user();
+
+        $query = Showtime::query()->where('status', 'draft')
+            ->when(! $user->isSuperAdmin(), fn ($q) => $q->whereIn('cinema_id', $user->assignedCinemaIds()));
+        if ($request->boolean('all')) {
+            $query->when($v['cinema'] ?? null, fn ($q, $id) => $q->whereHas('cinema', fn ($c) => $c->where('public_id', $id)))
+                ->where('starts_at', '>', now())->orderBy('starts_at')->limit(1000);
+        } else {
+            $query->whereIn('public_id', $v['ids']);
+        }
+
+        $published = [];
+        $skipped = [];
+        foreach ($query->get() as $showtime) {
+            if (! Gate::forUser($user)->allows('update', $showtime)) {
+                continue;
+            }
+            try {
+                $this->showtimes->publish($showtime, $user);
+                $published[] = $showtime->public_id;
+            } catch (ValidationException $e) {
+                $skipped[] = ['id' => $showtime->public_id, 'reason' => collect($e->errors())->flatten()->first() ?? $e->getMessage()];
+            } catch (DomainConflictException $e) {
+                $skipped[] = ['id' => $showtime->public_id, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return ApiResponse::success(['published' => $published, 'skipped' => $skipped], count($published).' showtime(s) put on sale.');
+    }
+
     /** Public ULIDs from the request become internal ids for the service. */
     private function internal(array $data): array
     {

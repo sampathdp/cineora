@@ -79,6 +79,23 @@ export function ShowtimesAdmin() {
     list.reload();
   }
 
+  /** `ids` publishes those drafts; `null` publishes every future draft (in the cinema filter, if set). */
+  async function publish(ids: string[] | null) {
+    const scope = cinema ? ` at ${cinemas.data?.find((c) => c.id === cinema)?.name ?? "this cinema"}` : "";
+    const what = ids === null ? `all draft showtimes${scope}` : ids.length === 1 ? "this showtime" : `${ids.length} showtimes`;
+    if (!window.confirm(`Put ${what} on sale? Customers will be able to book them.`)) return;
+    const body = ids === null ? { all: true, cinema: cinema || null } : { ids };
+    const r = await act.run(
+      () => adm.post<{ published: string[]; skipped: { id: string; reason: string }[] }>("/showtimes/bulk-publish", body).then((x) => x.data),
+      undefined,
+    );
+    if (!r) return;
+    const reasons = [...new Set(r.skipped.map((s) => s.reason))].join("; ");
+    window.alert(`Published ${r.published.length}.${r.skipped.length > 0 ? ` Skipped ${r.skipped.length}: ${reasons}` : ""}`);
+    setChecked(new Set());
+    list.reload();
+  }
+
   const cinemas = useLoad(() => adm.get<CinemaLite[]>("/cinemas").then((r) => r.data), "st-cinemas");
   const list = useLoad(
     () => adm.get<Showtime[]>("/showtimes", { status, cinema, page, per_page: 20 }),
@@ -149,6 +166,16 @@ export function ShowtimesAdmin() {
             ))}
           </SelectField>
         </div>
+        {canManage && (
+          <Button
+            variant="secondary"
+            disabled={act.busy}
+            onClick={() => publish(null)}
+            className="h-11 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+          >
+            Publish all drafts
+          </Button>
+        )}
       </div>
 
       <Section loading={list.loading} error={list.error} data={list.data}>
@@ -156,6 +183,7 @@ export function ShowtimesAdmin() {
           const pageIds = res.data.map((s) => s.id);
           const picked = pageIds.filter((id) => checked.has(id));
           const allPicked = pageIds.length > 0 && picked.length === pageIds.length;
+          const pickedDrafts = res.data.filter((s) => s.status === "draft" && checked.has(s.id)).map((s) => s.id);
           return (
           <>
             {canManage && picked.length > 0 && (
@@ -164,6 +192,15 @@ export function ShowtimesAdmin() {
                 <div className="flex items-center gap-2">
                   <Button size="sm" variant="ghost" onClick={() => setChecked(new Set())} className="h-8 text-xs cursor-pointer">
                     Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={act.busy || pickedDrafts.length === 0}
+                    onClick={() => publish(pickedDrafts)}
+                    className="h-8 px-2.5 text-xs border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer"
+                  >
+                    Publish selected{pickedDrafts.length !== picked.length ? ` (${pickedDrafts.length} drafts)` : ""}
                   </Button>
                   <Button
                     size="sm"
