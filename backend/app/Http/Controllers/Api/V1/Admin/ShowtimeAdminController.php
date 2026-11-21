@@ -142,6 +142,46 @@ class ShowtimeAdminController extends Controller
         return ApiResponse::success((new AdminShowtimeResource($this->showtimes->cancel($showtime, $request->user())))->resolve(), 'Showtime cancelled.');
     }
 
+    public function destroy(Request $request, Showtime $showtime): JsonResponse
+    {
+        Gate::authorize('update', $showtime);
+        $this->showtimes->delete($showtime, $request->user());
+
+        return ApiResponse::success(null, 'Showtime deleted.');
+    }
+
+    /**
+     * Deletes up to 100 showtimes by public id. Each one is checked on its own, so a showtime with bookings or
+     * outside the caller's cinemas is reported as skipped instead of failing the whole batch.
+     */
+    public function destroyMany(Request $request): JsonResponse
+    {
+        $v = $request->validate([
+            'ids' => ['required', 'array', 'min:1', 'max:100'],
+            'ids.*' => ['required', 'string', 'size:26', 'distinct'],
+        ]);
+        $user = $request->user();
+        $found = Showtime::whereIn('public_id', $v['ids'])->get()->keyBy('public_id');
+
+        $deleted = [];
+        $skipped = [];
+        foreach ($v['ids'] as $id) {
+            $showtime = $found[$id] ?? null;
+            if (! $showtime || ! Gate::forUser($user)->allows('update', $showtime)) {
+                $skipped[] = ['id' => $id, 'reason' => 'Not found.'];
+                continue;
+            }
+            try {
+                $this->showtimes->delete($showtime, $user);
+                $deleted[] = $id;
+            } catch (DomainConflictException $e) {
+                $skipped[] = ['id' => $id, 'reason' => $e->getMessage()];
+            }
+        }
+
+        return ApiResponse::success(['deleted' => $deleted, 'skipped' => $skipped], count($deleted).' showtime(s) deleted.');
+    }
+
     /** Public ULIDs from the request become internal ids for the service. */
     private function internal(array $data): array
     {

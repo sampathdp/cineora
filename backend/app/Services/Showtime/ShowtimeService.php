@@ -183,6 +183,25 @@ class ShowtimeService
         });
     }
 
+    /**
+     * Permanently removes a showtime with its prices and seat inventory. Refused once any booking (of any status)
+     * references it, since bookings, payments and tickets keep pointing at the showtime for history.
+     */
+    public function delete(Showtime $showtime, ?User $actor): void
+    {
+        DB::transaction(function () use ($showtime, $actor) {
+            $showtime = Showtime::whereKey($showtime->id)->lockForUpdate()->firstOrFail();
+            if ($showtime->bookings()->exists()) {
+                throw new DomainConflictException('This showtime has bookings. Cancel it instead of deleting.', 'has_bookings');
+            }
+
+            $showtime->seats()->delete();
+            $showtime->prices()->delete();
+            $showtime->delete();
+            $this->audit->log('showtime.deleted', $actor, 'showtime', $showtime->public_id, ['starts_at' => $showtime->starts_at->toIso8601String()]);
+        });
+    }
+
     public function relations(): array
     {
         return ['movie', 'cinema', 'room', 'prices.category'];

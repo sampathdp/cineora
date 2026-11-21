@@ -223,11 +223,13 @@ Route::prefix('v1')->group(function () {
         Route::get('/showtimes', [ShowtimeAdminController::class, 'index']);
         Route::post('/showtimes', [ShowtimeAdminController::class, 'store']);
         Route::post('/showtimes/bulk', [ShowtimeAdminController::class, 'storeMany']);
+        Route::post('/showtimes/bulk-delete', [ShowtimeAdminController::class, 'destroyMany']);
         Route::get('/showtimes/{showtime}', [ShowtimeAdminController::class, 'show']);
         Route::get('/showtimes/{showtime}/seats', [ShowtimeAdminController::class, 'seats']);
         Route::patch('/showtimes/{showtime}', [ShowtimeAdminController::class, 'update']);
         Route::put('/showtimes/{showtime}/prices', [ShowtimeAdminController::class, 'prices']);
         Route::post('/showtimes/{showtime}/publish', [ShowtimeAdminController::class, 'publish']);
         Route::post('/showtimes/{showtime}/cancel', [ShowtimeAdminController::class, 'cancel']);
+        Route::delete('/showtimes/{showtime}', [ShowtimeAdminController::class, 'destroy']);
     });
 });

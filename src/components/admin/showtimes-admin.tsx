@@ -51,6 +51,33 @@ export function ShowtimesAdmin() {
   const [cinema, setCinema] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const canManage = can("showtimes.manage");
+
+  const toggle = (id: string) =>
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  async function remove(ids: string[]) {
+    if (ids.length === 0) return;
+    const what = ids.length === 1 ? "this showtime" : `${ids.length} showtimes`;
+    if (!window.confirm(`Delete ${what}? This cannot be undone. Showtimes with bookings are skipped.`)) return;
+    const r = await act.run(
+      () => adm.post<{ deleted: string[]; skipped: { id: string; reason: string }[] }>("/showtimes/bulk-delete", { ids }).then((x) => x.data),
+      undefined,
+    );
+    if (!r) return;
+    if (r.skipped.length > 0) {
+      window.alert(`Deleted ${r.deleted.length}. Skipped ${r.skipped.length}: ${[...new Set(r.skipped.map((s) => s.reason))].join("; ")}`);
+    }
+    setChecked(new Set());
+    if (selectedId && r.deleted.includes(selectedId)) setSelectedId(null);
+    list.reload();
+  }
 
   const cinemas = useLoad(() => adm.get<CinemaLite[]>("/cinemas").then((r) => r.data), "st-cinemas");
   const list = useLoad(
@@ -93,6 +120,7 @@ export function ShowtimesAdmin() {
             onChange={(e) => {
               setStatus(e.target.value);
               setPage(1);
+              setChecked(new Set());
             }}
           >
             <option value="">All statuses</option>
@@ -110,6 +138,7 @@ export function ShowtimesAdmin() {
             onChange={(e) => {
               setCinema(e.target.value);
               setPage(1);
+              setChecked(new Set());
             }}
           >
             <option value="">All cinema venues</option>
@@ -123,8 +152,32 @@ export function ShowtimesAdmin() {
       </div>
 
       <Section loading={list.loading} error={list.error} data={list.data}>
-        {(res) => (
+        {(res) => {
+          const pageIds = res.data.map((s) => s.id);
+          const picked = pageIds.filter((id) => checked.has(id));
+          const allPicked = pageIds.length > 0 && picked.length === pageIds.length;
+          return (
           <>
+            {canManage && picked.length > 0 && (
+              <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-rose-500/30 bg-rose-500/5 px-4 py-2.5">
+                <span className="text-sm font-semibold text-foreground">{picked.length} selected</span>
+                <div className="flex items-center gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setChecked(new Set())} className="h-8 text-xs cursor-pointer">
+                    Clear
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={act.busy}
+                    onClick={() => remove(picked)}
+                    className="h-8 px-2.5 text-xs text-rose-500 border-rose-500/30 hover:bg-rose-500/10 cursor-pointer"
+                  >
+                    <Trash2 className="size-3.5 mr-1" aria-hidden />
+                    <span>Delete selected</span>
+                  </Button>
+                </div>
+              </div>
+            )}
             <DataTable
               rows={res.data}
               rowKey={(s) => s.id}
@@ -134,6 +187,42 @@ export function ShowtimesAdmin() {
               }}
               empty="No showtimes match your filter."
               columns={[
+                ...(canManage
+                  ? [
+                      {
+                        key: "sel",
+                        className: "w-10",
+                        label: (
+                          <input
+                            type="checkbox"
+                            aria-label="Select all showtimes on this page"
+                            checked={allPicked}
+                            ref={(el) => {
+                              if (el) el.indeterminate = picked.length > 0 && !allPicked;
+                            }}
+                            onChange={() =>
+                              setChecked((prev) => {
+                                const next = new Set(prev);
+                                pageIds.forEach((id) => (allPicked ? next.delete(id) : next.add(id)));
+                                return next;
+                              })
+                            }
+                            className="size-4 cursor-pointer accent-[var(--accent)]"
+                          />
+                        ),
+                        render: (s: Showtime) => (
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${s.movie.title} at ${when(s.starts_at)}`}
+                            checked={checked.has(s.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => toggle(s.id)}
+                            className="size-4 cursor-pointer accent-[var(--accent)]"
+                          />
+                        ),
+                      },
+                    ]
+                  : []),
                 {
                   key: "m",
                   label: "Movie Title",
@@ -230,6 +319,19 @@ export function ShowtimesAdmin() {
                           Cancel
                         </Button>
                       )}
+
+                      {canManage && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label={`Delete ${s.movie.title} at ${when(s.starts_at)}`}
+                          disabled={act.busy}
+                          onClick={() => remove([s.id])}
+                          className="h-8 px-2 text-rose-500 hover:bg-rose-500/10 cursor-pointer"
+                        >
+                          <Trash2 className="size-3.5" aria-hidden />
+                        </Button>
+                      )}
                     </div>
                   ),
                 },
@@ -238,10 +340,14 @@ export function ShowtimesAdmin() {
             <Pager
               page={Number(res.meta?.page ?? 1)}
               last={Number(res.meta?.last_page ?? 1)}
-              onPage={setPage}
+              onPage={(p) => {
+                setPage(p);
+                setChecked(new Set());
+              }}
             />
           </>
-        )}
+          );
+        }}
       </Section>
 
       {creating ? (
