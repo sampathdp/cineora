@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api/client";
 import { zonedParts } from "@/lib/formatters";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
+import { confirmDialog, alertDialog } from "@/components/ui/dialogs";
 import { AdminModal, DataTable, Feedback, PageTitle, Pager, Pill, Section, SelectField, TextField, useAction, useLoad, when, won } from "./kit";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +44,22 @@ export function zonedToIso(local: string, timeZone: string): string {
   return new Date(guess - offset).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
+/** Skip reasons for bulk results: identical reasons are grouped with a count, the list scrolls when long. */
+function SkipList({ items }: { items: string[] }) {
+  const counts = new Map<string, number>();
+  items.forEach((x) => counts.set(x, (counts.get(x) ?? 0) + 1));
+  return (
+    <ul className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-lg border border-line/60 bg-surface/50 p-2.5 text-xs">
+      {[...counts].map(([reason, n]) => (
+        <li key={reason}>
+          {n > 1 ? <span className="font-semibold text-foreground">{n}× </span> : null}
+          {reason}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function ShowtimesAdmin() {
   const { can } = useAuth();
   const act = useAction();
@@ -65,14 +82,14 @@ export function ShowtimesAdmin() {
   async function remove(ids: string[]) {
     if (ids.length === 0) return;
     const what = ids.length === 1 ? "this showtime" : `${ids.length} showtimes`;
-    if (!window.confirm(`Delete ${what}? This cannot be undone. Showtimes with bookings are skipped.`)) return;
+    if (!(await confirmDialog({ title: `Delete ${what}?`, message: "This cannot be undone. Showtimes that already have bookings are skipped.", confirmLabel: "Delete", danger: true }))) return;
     const r = await act.run(
       () => adm.post<{ deleted: string[]; skipped: { id: string; reason: string }[] }>("/showtimes/bulk-delete", { ids }).then((x) => x.data),
       undefined,
     );
     if (!r) return;
     if (r.skipped.length > 0) {
-      window.alert(`Deleted ${r.deleted.length}. Skipped ${r.skipped.length}: ${[...new Set(r.skipped.map((s) => s.reason))].join("; ")}`);
+      await alertDialog({ title: `Deleted ${r.deleted.length}, skipped ${r.skipped.length}`, message: <SkipList items={r.skipped.map((s) => s.reason)} /> });
     }
     setChecked(new Set());
     if (selectedId && r.deleted.includes(selectedId)) setSelectedId(null);
@@ -83,15 +100,14 @@ export function ShowtimesAdmin() {
   async function publish(ids: string[] | null) {
     const scope = cinema ? ` at ${cinemas.data?.find((c) => c.id === cinema)?.name ?? "this cinema"}` : "";
     const what = ids === null ? `all draft showtimes${scope}` : ids.length === 1 ? "this showtime" : `${ids.length} showtimes`;
-    if (!window.confirm(`Put ${what} on sale? Customers will be able to book them.`)) return;
+    if (!(await confirmDialog({ title: `Put ${what} on sale?`, message: "Customers will be able to book them right away.", confirmLabel: "Publish", tone: "success" }))) return;
     const body = ids === null ? { all: true, cinema: cinema || null } : { ids };
     const r = await act.run(
       () => adm.post<{ published: string[]; skipped: { id: string; reason: string }[] }>("/showtimes/bulk-publish", body).then((x) => x.data),
       undefined,
     );
     if (!r) return;
-    const reasons = [...new Set(r.skipped.map((s) => s.reason))].join("; ");
-    window.alert(`Published ${r.published.length}.${r.skipped.length > 0 ? ` Skipped ${r.skipped.length}: ${reasons}` : ""}`);
+    await alertDialog({ title: `${r.published.length} showtime(s) on sale`, tone: r.skipped.length > 0 ? "default" : "success", message: r.skipped.length > 0 ? <><p>Skipped {r.skipped.length}:</p><SkipList items={r.skipped.map((s) => s.reason)} /></> : undefined });
     setChecked(new Set());
     list.reload();
   }
@@ -345,7 +361,7 @@ export function ShowtimesAdmin() {
                           size="sm"
                           variant="ghost"
                           onClick={async () => {
-                            if (window.confirm("Cancel this showtime? Customers will need refunds.")) {
+                            if (await confirmDialog({ title: "Cancel this showtime?", message: "It is taken off sale. This cannot be undone.", confirmLabel: "Cancel showtime", cancelLabel: "Keep", danger: true })) {
                               if (await act.run(() => adm.post(`/showtimes/${s.id}/cancel`), "Cancelled.")) {
                                 list.reload();
                               }
@@ -518,7 +534,7 @@ function CreateShowtime({
 
     if (r) {
       if (r.skipped.length > 0) {
-        window.alert(`Created ${r.created.length} draft showtime(s). Skipped ${r.skipped.length}: ${r.skipped.join("; ")}`);
+        await alertDialog({ title: `Created ${r.created.length} draft showtime(s)`, message: <><p>Skipped {r.skipped.length}:</p><SkipList items={r.skipped} /></> });
       }
       onCreated(r.created.length === 1 ? r.created[0] : null);
     }
@@ -890,7 +906,7 @@ function ShowtimeDetail({
                     disabled={act.busy}
                     onClick={async () => {
                       if (
-                        window.confirm("Cancel this showtime? This cannot be undone.") &&
+                        (await confirmDialog({ title: "Cancel this showtime?", message: "It is taken off sale. This cannot be undone.", confirmLabel: "Cancel showtime", cancelLabel: "Keep", danger: true })) &&
                         (await act.run(() => adm.post(`/showtimes/${id}/cancel`), "Cancelled."))
                       ) {
                         refresh();

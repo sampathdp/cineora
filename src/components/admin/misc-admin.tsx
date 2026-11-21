@@ -17,6 +17,7 @@ import { adminApi, type AdminBankAccount, type AdminRefund } from "@/lib/api/adm
 import { ApiError } from "@/lib/api/client";
 import { formatPrice } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
+import { alertDialog, promptDialog } from "@/components/ui/dialogs";
 import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { FormMessage } from "@/components/auth/form-kit";
 import { AdminModal, PageTitle, Pill, TextField, TextArea } from "./kit";
@@ -355,13 +356,13 @@ export function BankAccounts() {
                     size="sm"
                     variant="secondary"
                     onClick={async () => {
-                      const value = window.prompt(`New account number for ${a.bank_name} · ${a.account_name}`, a.account_number ?? "");
-                      if (value === null || value.trim() === "") return;
+                      const value = await promptDialog({ title: "Edit account number", message: `${a.bank_name} · ${a.account_name}`, label: "Account number", placeholder: "e.g. 123-4567-89012", defaultValue: a.account_number ?? "", minLength: 4, confirmLabel: "Save" });
+                      if (!value) return;
                       try {
                         await adminApi.updateBankAccount(a.id, { account_number: value.trim() });
                         setNonce((n) => n + 1);
                       } catch (err) {
-                        window.alert(err instanceof ApiError ? (Object.values(err.errors)[0]?.[0] ?? err.message) : "Could not save.");
+                        await alertDialog({ title: "Could not save", tone: "danger", message: err instanceof ApiError ? (Object.values(err.errors)[0]?.[0] ?? err.message) : "Please try again." });
                       }
                     }}
                     className="cursor-pointer shadow-sm text-xs font-semibold"

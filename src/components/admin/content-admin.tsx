@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { zonedToIso } from "./showtimes-admin";
 import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Panel, Pager, Pill, Section, SelectField, TextArea, TextField, useAction, useLoad, when } from "./kit";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 type Tab = "events" | "articles" | "testimonials" | "inbox";
 const TABS: [Tab, string, React.ComponentType<{ className?: string }>][] = [
@@ -226,7 +227,7 @@ function Editorial({ kind }: { kind: "events" | "articles" }) {
                       size="sm"
                       variant="ghost"
                       onClick={async () => {
-                        if (window.confirm(`Delete ${noun} "${i.title}"?`)) {
+                        if ((await confirmDialog({ title: `Delete ${noun}?`, message: `"${i.title}" will be removed. This cannot be undone.`, confirmLabel: "Delete", danger: true }))) {
                           if (await act.run(() => adm.del(`/content/${kind}/${i.id}`), "Deleted.")) {
                             list.reload();
                           }
@@ -595,7 +596,7 @@ function Testimonials() {
                       size="sm"
                       variant="ghost"
                       onClick={async () => {
-                        if (window.confirm("Delete this testimonial?")) {
+                        if ((await confirmDialog({ title: "Delete this testimonial?", message: "This cannot be undone.", confirmLabel: "Delete", danger: true }))) {
                           if (await act.run(() => adm.del(`/testimonials/${t.id}`), "Deleted.")) {
                             list.reload();
                           }

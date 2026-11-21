@@ -7,6 +7,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { AdminModal, DataTable, Feedback, PageTitle, Pager, Pill, Section, SelectField, TextField, useAction, useLoad, when, won } from "./kit";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Booking {
   id: string;
@@ -204,7 +205,7 @@ export function BookingsAdmin() {
                           size="sm"
                           variant="ghost"
                           onClick={async () => {
-                            if (window.confirm(`Cancel booking "${b.reference}"?`)) {
+                            if ((await confirmDialog({ title: `Cancel booking ${b.reference}?`, message: "The booking is cancelled and its seats go back on sale.", confirmLabel: "Cancel booking", cancelLabel: "Keep booking", danger: true }))) {
                               if (await act.run(() => adm.post(`/bookings/${b.id}/cancel`), "Cancelled.")) {
                                 list.reload();
                               }
@@ -407,7 +408,7 @@ function Detail({
                   disabled={act.busy}
                   onClick={async () => {
                     if (
-                      window.confirm("Cancel this unpaid booking and release the seat inventory?") &&
+                      (await confirmDialog({ title: "Cancel this unpaid booking?", message: "Its held seats are released back into inventory.", confirmLabel: "Cancel booking", cancelLabel: "Keep booking", danger: true })) &&
                       (await act.run(() => adm.post(`/bookings/${id}/cancel`), "Cancelled."))
                     ) {
                       d.reload();

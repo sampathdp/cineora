@@ -5,6 +5,7 @@ import { Check, Copy, Percent, Plus, Tag, Trash2 } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
 import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Pill, Section, SelectField, TextField, useAction, useLoad, won } from "./kit";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Promo {
   id: number;
@@ -160,7 +161,7 @@ export function PromotionsAdmin() {
                       size="sm"
                       variant="ghost"
                       onClick={async () => {
-                        if (window.confirm(`Delete promotion code "${p.code}"?`)) {
+                        if ((await confirmDialog({ title: `Delete promo code ${p.code}?`, message: "Customers can no longer use it.", confirmLabel: "Delete", danger: true }))) {
                           if (await act.run(() => adm.del(`/promotions/${p.id}`), "Promo deleted.")) {
                             list.reload();
                           }

@@ -16,6 +16,7 @@ import { PaymentPanel } from "./payment-panel";
 import { TicketList } from "./ticket-cards";
 import { paymentsApi, type TicketInfo } from "@/lib/api/payments";
 import { cn } from "@/lib/utils";
+import { confirmDialog, promptDialog } from "@/components/ui/dialogs";
 
 /** Seconds left until `iso`, measured on the server's clock (so a wrong device clock cannot mislead). Informational only. */
 function useCountdown(iso: string | undefined, offset: number) {
@@ -113,8 +114,16 @@ export function BookingView({ id }: { id: string }) {
 
   async function requestRefund() {
     if (!booking) return;
-    const reason = window.prompt("Why would you like a refund? (at least 5 characters)");
-    if (!reason || reason.trim().length < 5) return;
+    const reason = await promptDialog({
+      title: "Request a refund",
+      message: "Tell us why you would like a refund. Our team reviews every request.",
+      label: "Reason",
+      placeholder: "e.g. I can no longer attend",
+      minLength: 5,
+      multiline: true,
+      confirmLabel: "Send request",
+    });
+    if (!reason) return;
     setRefundBusy(true);
     setActionError(null);
     try {
@@ -128,7 +137,7 @@ export function BookingView({ id }: { id: string }) {
   }
 
   async function cancel() {
-    if (!booking || !window.confirm("Cancel this booking and release your seats?")) return;
+    if (!booking || !(await confirmDialog({ title: "Cancel this booking?", message: "Your seats will be released.", confirmLabel: "Cancel booking", cancelLabel: "Keep booking", danger: true }))) return;
     setCancelling(true);
     setActionError(null);
     try {

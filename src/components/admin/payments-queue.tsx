@@ -24,6 +24,7 @@ import { EmptyState, Skeleton } from "@/components/ui/misc";
 import { FormMessage } from "@/components/auth/form-kit";
 import { PageTitle, Pill } from "./kit";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 type Queue = "pending" | "exceptions" | "all";
 const TABS: { key: Queue; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -378,11 +379,14 @@ function PaymentDetail({
         <div className="flex flex-wrap items-center gap-3 border-t border-line/60 pt-4">
           <Button
             disabled={busy || !payment.amount_matches}
-            onClick={() => {
+            onClick={async () => {
               if (
-                window.confirm(
-                  `Verify the transfer of ${formatPrice(payment.submitted_amount ?? 0)} for ${payment.booking.reference}? Official tickets will be issued.`,
-                )
+                await confirmDialog({
+                  title: "Verify this transfer?",
+                  message: `${formatPrice(payment.submitted_amount ?? 0)} for ${payment.booking.reference}. Official tickets will be issued.`,
+                  confirmLabel: "Verify & issue tickets",
+                  tone: "success",
+                })
               ) {
                 void run(() => adminApi.verify(payment.id), "Payment verified. Tickets issued.");
               }

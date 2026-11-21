@@ -7,6 +7,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { AdminModal, DataTable, Feedback, PageTitle, Panel, Pill, Section, TextField, useAction, useLoad, when } from "./kit";
 import { cn } from "@/lib/utils";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Staff {
   id: string;
@@ -400,7 +401,7 @@ function StaffEditor({
                 disabled={act.busy}
                 onClick={async () => {
                   if (
-                    window.confirm("Reset their two-factor TOTP setup? They must re-enrol upon next sign-in.") &&
+                    (await confirmDialog({ title: "Reset two-factor authentication?", message: "They must set up their authenticator again at next sign-in.", confirmLabel: "Reset 2FA", danger: true })) &&
                     (await act.run(() => adm.post(`/staff/${person.id}/reset-mfa`), "Two-factor reset."))
                   ) {
                     onSaved();
@@ -419,11 +420,11 @@ function StaffEditor({
                 disabled={act.busy}
                 onClick={async () => {
                   if (
-                    window.confirm(
+                    (await confirmDialog(
                       person.is_active
-                        ? "Disable this account and revoke all active sessions?"
-                        : "Re-enable this account?",
-                    ) &&
+                        ? { title: "Disable this account?", message: "All active sessions are signed out immediately.", confirmLabel: "Disable", danger: true }
+                        : { title: "Re-enable this account?", confirmLabel: "Enable" },
+                    )) &&
                     (await act.run(
                       () => adm.patch(`/staff/${person.id}`, { is_active: !person.is_active }),
                       person.is_active ? "Account disabled." : "Account enabled.",
@@ -526,7 +527,7 @@ function Roles() {
                         size="sm"
                         variant="ghost"
                         onClick={async () => {
-                          if (window.confirm(`Delete role "${r.name}"?`)) {
+                          if ((await confirmDialog({ title: `Delete role "${r.name}"?`, message: "This cannot be undone.", confirmLabel: "Delete role", danger: true }))) {
                             if (await act.run(() => adm.del(`/roles/${r.key}`), "Role deleted.")) {
                               roles.reload();
                             }
@@ -639,7 +640,7 @@ function Roles() {
                   variant="ghost"
                   onClick={async () => {
                     if (
-                      window.confirm("Delete this role?") &&
+                      (await confirmDialog({ title: "Delete this role?", message: "This cannot be undone.", confirmLabel: "Delete role", danger: true })) &&
                       (await act.run(() => adm.del(`/roles/${editing.key}`), "Deleted."))
                     ) {
                       roles.reload();

@@ -11,6 +11,7 @@ import { Button, LinkButton } from "@/components/ui/button";
 import { routes } from "@/lib/routes";
 import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Pill, Section, SelectField, TextArea, TextField, useAction, useLoad, when } from "./kit";
 import { cn } from "@/lib/utils";
+import { alertDialog, confirmDialog } from "@/components/ui/dialogs";
 
 interface Movie {
   id: string;
@@ -252,7 +253,7 @@ export function MoviesAdmin() {
                         size="sm"
                         variant="ghost"
                         onClick={async () => {
-                          if (window.confirm(`Delete "${m.title}"? This cannot be undone.`)) {
+                          if ((await confirmDialog({ title: `Delete "${m.title}"?`, message: "This cannot be undone.", confirmLabel: "Delete movie", danger: true }))) {
                             if (await act.run(() => adm.del(`/movies/${m.id}`), "Movie deleted.")) {
                               list.reload();
                             }
@@ -445,14 +446,14 @@ function MovieEditor({
     if (r) onSaved(r.data.id);
     else if (createdId) {
       // The movie exists now; never leave the form open to create it a second time.
-      window.alert("The movie was saved as a draft, but uploading the artwork or publishing did not finish. Please check it on the next screen.");
+      await alertDialog({ title: "Saved as draft", message: "The movie was saved, but uploading the artwork or publishing did not finish. Please check it on the next screen." });
       onSaved(createdId);
     }
   }
 
   const transition = (what: "publish" | "unpublish" | "archive", ok: string) => async () => {
     if (!movie) return;
-    if ((what === "archive" || what === "unpublish") && !window.confirm(`Really ${what} this movie?`)) return;
+    if ((what === "archive" || what === "unpublish") && !(await confirmDialog({ title: `${what === "archive" ? "Archive" : "Unpublish"} this movie?`, message: what === "archive" ? "It is hidden from the site and cannot get new showtimes." : "It is hidden from the site until you publish it again.", confirmLabel: what === "archive" ? "Archive" : "Unpublish", danger: true }))) return;
     const r = await act.run(() => adm.post<Movie>(`/movies/${movie.id}/${what}`), ok);
     if (r) onSaved(r.data.id, r.data);
   };
@@ -684,7 +685,7 @@ function MovieEditor({
               type="button"
               variant="ghost"
               onClick={async () => {
-                if (window.confirm(`Delete "${movie.title}"? This cannot be undone.`)) {
+                if ((await confirmDialog({ title: `Delete "${movie.title}"?`, message: "This cannot be undone.", confirmLabel: "Delete movie", danger: true }))) {
                   if (await act.run(() => adm.del(`/movies/${movie.id}`), "Movie deleted.")) {
                     onClose();
                     onSaved();

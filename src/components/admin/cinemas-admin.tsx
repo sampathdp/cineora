@@ -9,6 +9,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { Button, LinkButton } from "@/components/ui/button";
 import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Panel, Pill, Section, SelectField, TextArea, TextField, useAction, useLoad } from "./kit";
 import { routes } from "@/lib/routes";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 interface Room {
   id: string;
@@ -489,7 +490,7 @@ function Photos({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void }
                 aria-label="Remove photo"
                 onClick={async () => {
                   if (
-                    window.confirm("Remove this photo?") &&
+                    (await confirmDialog({ title: "Remove this photo?", message: "It is removed from the cinema gallery.", confirmLabel: "Remove", danger: true })) &&
                     (await act.run(() => adm.del(`/cinemas/${cinema.id}/images/${i.id}`)))
                   ) {
                     onChanged();
@@ -619,7 +620,7 @@ function Rooms({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void })
                     aria-label={`Delete ${r.name}`}
                     onClick={async () => {
                       if (
-                        window.confirm(`Delete hall "${r.name}"?`) &&
+                        (await confirmDialog({ title: `Delete hall "${r.name}"?`, message: "Its seat layout is deleted too. This cannot be undone.", confirmLabel: "Delete hall", danger: true })) &&
                         (await act.run(() => adm.del(`/rooms/${r.id}`), "Hall deleted."))
                       ) {
                         onChanged();
