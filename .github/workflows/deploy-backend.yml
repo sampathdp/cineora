@@ -92,8 +92,11 @@ jobs:
               Header always set X-Frame-Options "DENY"
               Header always set Referrer-Policy "strict-origin-when-cross-origin"
               Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-              # The ticket scanner and the paired phone scanner are the only pages that may ask for the camera.
-              <If "%{REQUEST_URI} =~ m#^/admin/(tickets/scan|scan-remote)/?$#">
+              # Only the staff area may ask for the camera (door scanner, paired phone scanner). It must cover every
+              # /admin/ page, not just the scanner URLs: the policy is fixed when the document loads, and admin pages
+              # switch without a reload, so opening the scanner from the dashboard keeps the dashboard's policy.
+              # Android Chrome then refuses the camera silently, with no permission prompt (iOS Safari ignores it).
+              <If "%{REQUEST_URI} =~ m#^/admin/#">
                   Header always set Permissions-Policy "camera=(self), microphone=(), geolocation=()"
               </If>
               # Hashed build assets never change; pages must always be revalidated.

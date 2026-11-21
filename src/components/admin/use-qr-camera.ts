@@ -21,6 +21,20 @@ export function useQrCamera(onCode: (code: string) => void) {
     onCodeRef.current = onCode;
   }, [onCode]);
 
+  // A page reached by in-app navigation keeps the Permissions-Policy of the first page loaded. If that policy blocks
+  // the camera, Chromium (Android) refuses getUserMedia without ever showing the permission prompt. One full reload
+  // gives this page its own policy; the session flag stops a reload loop if the server still blocks it.
+  useEffect(() => {
+    if (!cameraBlockedByPolicy()) return;
+    try {
+      if (sessionStorage.getItem(RELOAD_KEY) === location.pathname) return;
+      sessionStorage.setItem(RELOAD_KEY, location.pathname);
+    } catch {
+      return;
+    }
+    location.reload();
+  }, []);
+
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
@@ -32,6 +46,11 @@ export function useQrCamera(onCode: (code: string) => void) {
     // Browsers only expose cameras on https:// (or localhost).
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setCamera("insecure");
+      return;
+    }
+    if (cameraBlockedByPolicy()) {
+      setCameraError("This page is not allowed to use the camera. Reload the page and try again.");
+      setCamera("denied");
       return;
     }
     setCamera("starting");
@@ -54,7 +73,9 @@ export function useQrCamera(onCode: (code: string) => void) {
       const name = e instanceof DOMException ? e.name : "";
       setCameraError(
         name === "NotAllowedError"
-          ? "Camera permission was denied. Allow it for this site in the browser settings, then try again."
+          ? /Android/i.test(navigator.userAgent)
+            ? "Camera is blocked for this site. In Chrome tap the icon left of the address bar → Permissions → Camera → Allow, then reload and try again."
+            : "Camera permission was denied. Allow it for this site in the browser settings, then try again."
           : name === "NotReadableError"
             ? "The camera is in use by another app. Close it and try again."
             : name === "NotFoundError"
@@ -89,4 +110,20 @@ export function useQrCamera(onCode: (code: string) => void) {
   }, [camera]);
 
   return { camera, cameraError, start, stop, videoRef, canvasRef };
+}
+
+const RELOAD_KEY = "qr-camera-policy-reload";
+
+/** True when the page's Permissions-Policy forbids the camera (Chromium only; other browsers report nothing). */
+function cameraBlockedByPolicy(): boolean {
+  const doc = document as Document & {
+    permissionsPolicy?: { allowsFeature(f: string): boolean };
+    featurePolicy?: { allowsFeature(f: string): boolean };
+  };
+  const policy = doc.permissionsPolicy ?? doc.featurePolicy;
+  try {
+    return policy ? !policy.allowsFeature("camera") : false;
+  } catch {
+    return false;
+  }
 }

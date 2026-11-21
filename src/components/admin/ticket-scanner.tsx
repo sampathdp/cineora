@@ -44,11 +44,19 @@ export function TicketScanner() {
     printRef.current = printer.print;
   }, [printer.print]);
 
+  const [popup, setPopup] = useState<Popup | null>(null);
+  const popupSeq = useRef(0);
+  const flash = useCallback((p: Omit<Popup, "id">) => {
+    beep(p.ok);
+    setPopup({ ...p, id: ++popupSeq.current });
+  }, []);
+
   /** Every result, whether from this device or the paired phone, lands here. */
   const show = useCallback((r: ScanResult) => {
     setResult(r);
+    flash({ ok: r.result === "valid", title: TITLE[r.result], message: r.message, ticket: r.ticket ?? null });
     if (r.result === "valid" && r.ticket && autoPrintRef.current) void printRef.current(r.ticket);
-  }, []);
+  }, [flash]);
 
   const loadRecent = useCallback(() => {
     adminApi.recentScans().then(setRecent).catch(() => undefined);
@@ -66,19 +74,20 @@ export function TicketScanner() {
         loadRecent();
       } catch (e) {
         setResult(null);
-        setError(
+        const message =
           e instanceof ApiError
             ? e.status === 429
               ? "Scanning too fast. Please wait a moment."
               : e.message
-            : "Could not reach the server.",
-        );
+            : "Could not reach the server.";
+        setError(message);
+        flash({ ok: false, title: "SCAN FAILED", message, ticket: null });
       } finally {
         busyRef.current = false;
         setBusy(false);
       }
     },
-    [loadRecent, show],
+    [loadRecent, show, flash],
   );
 
   const { camera, cameraError, start: startCamera, stop: stopCamera, videoRef, canvasRef } = useQrCamera((code) => void validate(scanInput(code)));
@@ -150,6 +159,7 @@ export function TicketScanner() {
 
   return (
     <section className="space-y-6">
+      {popup ? <ScanPopup key={popup.id} popup={popup} onClose={() => setPopup(null)} /> : null}
       <PageTitle
         title="Door Scanner & Ticket Admissions"
         eyebrow="Admissions Gate"
@@ -423,5 +433,128 @@ export function TicketScanner() {
         </div>
       </div>
     </section>
+  );
+}
+
+interface Popup {
+  id: number;
+  ok: boolean;
+  title: string;
+  message: string;
+  ticket: ScanResult["ticket"] | null;
+}
+
+/** Short high beep for admit, low double buzz for refuse. Silently skipped where audio is unavailable. */
+function beep(ok: boolean) {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const tones = ok ? [[880, 0, 0.15]] : [[220, 0, 0.18], [220, 0.24, 0.18]];
+    for (const [freq, at, len] of tones) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = ok ? "sine" : "square";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.15, ctx.currentTime + at);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + at + len);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(ctx.currentTime + at);
+      osc.stop(ctx.currentTime + at + len);
+    }
+    setTimeout(() => void ctx.close(), 800);
+  } catch {
+    // no audio: the popup is enough
+  }
+}
+
+/** Full-screen admit / refuse card. Closes itself (faster on success), on click, or on Escape / Enter. */
+function ScanPopup({ popup, onClose }: { popup: Popup; onClose: () => void }) {
+  const ms = popup.ok ? 2500 : 4500;
+  // The parent re-renders often (phone polling); keep the latest callback without restarting the timer.
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    const t = setTimeout(() => closeRef.current(), ms);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" || e.key === "Enter") {
+        e.preventDefault();
+        closeRef.current();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ms]);
+
+  const t = popup.ticket;
+  const Icon = popup.ok ? CheckCircle2 : XCircle;
+
+  return (
+    <div
+      className="fixed inset-0 z-[250] grid place-items-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in"
+      onClick={onClose}
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="scan-popup-title"
+      aria-describedby="scan-popup-msg"
+    >
+      <div
+        className={cn(
+          "relative w-full max-w-md overflow-hidden rounded-3xl border-2 bg-elevated p-8 text-center shadow-2xl",
+          popup.ok ? "border-emerald-500 shadow-emerald-500/30" : "border-rose-500 shadow-rose-500/30",
+        )}
+      >
+        <div className={cn("mx-auto grid size-24 place-items-center rounded-full", popup.ok ? "bg-emerald-500 text-white" : "bg-rose-500 text-white")}>
+          <Icon className="size-14" strokeWidth={2.5} aria-hidden />
+        </div>
+        <p className={cn("mt-5 text-xs font-bold uppercase tracking-[0.2em]", popup.ok ? "text-emerald-500" : "text-rose-500")}>
+          {popup.ok ? "Success" : "Failed"}
+        </p>
+        <h2 id="scan-popup-title" className={cn("mt-1 text-3xl font-extrabold tracking-tight", popup.ok ? "text-emerald-500" : "text-rose-500")}>
+          {popup.title}
+        </h2>
+        <p id="scan-popup-msg" className="mt-2 text-sm text-muted">
+          {popup.message}
+        </p>
+
+        {t ? (
+          <div className="mt-6 rounded-2xl border border-line/60 bg-surface/60 p-4 text-left text-sm">
+            <div className="flex items-center justify-between border-b border-line/40 pb-2">
+              <span className="text-muted">Seat</span>
+              <span className="font-mono text-2xl font-extrabold text-accent">{t.seat}</span>
+            </div>
+            <div className="mt-2 flex justify-between gap-3">
+              <span className="text-muted">Movie</span>
+              <span className="truncate font-semibold">{t.movie}</span>
+            </div>
+            <div className="mt-1 flex justify-between gap-3">
+              <span className="text-muted">Hall · time</span>
+              <span className="font-semibold">
+                {t.room} · {formatTime(zonedParts(t.starts_at, "Asia/Seoul").time)}
+              </span>
+            </div>
+            {!popup.ok && t.checked_in_at ? (
+              <div className="mt-1 flex justify-between gap-3 text-amber-500">
+                <span>First scanned</span>
+                <span className="font-semibold">{formatTime(zonedParts(t.checked_in_at, "Asia/Seoul").time)}</span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <p className="mt-6 text-xs text-muted">Tap anywhere or press Enter to scan the next ticket</p>
+        <span
+          className={cn("absolute bottom-0 left-0 h-1", popup.ok ? "bg-emerald-500" : "bg-rose-500")}
+          style={{ animation: `scan-popup-timer ${ms}ms linear forwards` }}
+          aria-hidden
+        />
+        <style>{`@keyframes scan-popup-timer { from { width: 100%; } to { width: 0%; } }`}</style>
+      </div>
+    </div>
   );
 }

@@ -14,5 +14,6 @@ export const routes = {
   editMovie: (id: string) => withQuery("/admin/movies/edit/", "id", id),
   newCinema: "/admin/cinemas/new/",
   editCinema: (id: string) => withQuery("/admin/cinemas/edit/", "id", id),
+  adminBooking: (id: string) => withQuery("/admin/bookings/view/", "id", id),
   roomSeats: (roomId: string) => withQuery("/admin/cinemas/rooms/seats/", "room", roomId),
 };
