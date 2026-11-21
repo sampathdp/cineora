@@ -3,14 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, CalendarClock, Check, ChevronRight, Copy, Eye, Film, Mail, MapPin, Ticket, User, XCircle } from "lucide-react";
+import { ArrowLeft, CalendarClock, Check, ChevronRight, Copy, Eye, Film, Mail, MapPin, RotateCcw, Ticket, User, XCircle } from "lucide-react";
 import { routes } from "@/lib/routes";
 import { adm } from "@/lib/api/admin";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { DataTable, Feedback, PageTitle, Pager, Pill, Section, SelectField, TextField, useAction, useLoad, when, won } from "./kit";
 import { cn } from "@/lib/utils";
-import { confirmDialog } from "@/components/ui/dialogs";
+import { confirmDialog, promptDialog } from "@/components/ui/dialogs";
 
 interface Booking {
   id: string;
@@ -23,7 +23,7 @@ interface Booking {
   created_at: string;
   payment_deadline_at: string;
   seats: { label: string; category: string; unit_price: number }[];
-  showtime: { id: string; starts_at: string; movie: string; cinema: string; room: string } | null;
+  showtime: { id: string; starts_at: string; refundable_until: string; movie: string; cinema: string; room: string } | null;
   customer: { name: string; email: string } | null;
   payments?: { id: string; status: string; expected_amount: number; submitted_amount: number | null }[];
   history?: { from: string | null; to: string; reason: string | null; actor: string | null; at: string }[];
@@ -40,6 +40,68 @@ const STATUSES = [
   "REFUNDED",
   "PAYMENT_EXCEPTION",
 ];
+
+const UNPAID = ["PENDING_PAYMENT", "PAYMENT_REJECTED"];
+
+/** Paid bookings are refunded (customer phoned in), only until 48 hours before the show. The server enforces it too. */
+const refundOpen = (b: Booking) => b.status === "CONFIRMED" && !!b.showtime && Date.now() < Date.parse(b.showtime.refundable_until);
+
+async function askRefundReason(b: Booking) {
+  const reason = await promptDialog({
+    title: `Refund booking ${b.reference}?`,
+    message: `Files a refund request for ${won(b.total)} in the refunds queue. Tickets are put on hold until it is paid or denied.`,
+    label: "Reason (from the customer's call)",
+    placeholder: "e.g. Customer called, can no longer attend",
+    minLength: 5,
+    multiline: true,
+    confirmLabel: "Send refund request",
+  });
+  return reason?.trim() || null;
+}
+
+const EXTEND_OPTIONS = [
+  { hours: 2, label: "2 hours" },
+  { hours: 6, label: "6 hours" },
+  { hours: 12, label: "12 hours" },
+  { hours: 24, label: "1 day" },
+  { hours: 48, label: "2 days" },
+  { hours: 72, label: "3 days" },
+  { hours: 168, label: "7 days" },
+];
+
+/** Gives an unpaid booking more time to pay; its seats stay held until the new deadline (never past the show start). */
+function ExtendPayment({ deadline, busy, onExtend, onDone }: { deadline: string; busy: boolean; onExtend: (hours: number) => Promise<unknown>; onDone: () => void }) {
+  const [hours, setHours] = useState(24);
+  return (
+    <div className="rounded-2xl border border-accent/30 bg-accent/5 p-5">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-accent-text">Extend payment time</h2>
+      <p className="mt-1 text-sm text-muted">
+        Currently due {when(deadline)}. Seats stay held until the new time, which must be before the show starts.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <div className="flex-1">
+          <SelectField id="extend-hours" label="Add" value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+            {EXTEND_OPTIONS.map((o) => (
+              <option key={o.hours} value={o.hours}>
+                {o.label}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+      </div>
+      <Button
+        variant="secondary"
+        disabled={busy}
+        className="mt-3 w-full"
+        onClick={async () => {
+          if (await onExtend(hours)) onDone();
+        }}
+      >
+        <CalendarClock className="size-4" aria-hidden /> Extend
+      </Button>
+    </div>
+  );
+}
 
 const tone = (s: string) =>
   (s === "CONFIRMED"
@@ -203,7 +265,23 @@ export function BookingsAdmin() {
                         <Eye className="size-3.5 mr-1" />
                         <span>Inspect</span>
                       </Button>
-                      {can("bookings.cancel") && (b.status === "CONFIRMED" || b.status === "PENDING_PAYMENT") && (
+                      {can("bookings.cancel") && refundOpen(b) && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={act.busy}
+                          onClick={async () => {
+                            const reason = await askRefundReason(b);
+                            if (reason && (await act.run(() => adm.post(`/bookings/${encodeURIComponent(b.id)}/refund-request`, { reason }), "Refund request sent."))) {
+                              list.reload();
+                            }
+                          }}
+                          className="h-8 px-2 text-xs text-amber-500 hover:bg-amber-500/10 cursor-pointer"
+                        >
+                          Refund
+                        </Button>
+                      )}
+                      {can("bookings.cancel") && UNPAID.includes(b.status) && (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -448,7 +526,44 @@ export function BookingDetailPage() {
 
               <Feedback error={act.error} note={act.note} />
 
-              {can("bookings.cancel") && (b.status === "PENDING_PAYMENT" || b.status === "PAYMENT_REJECTED" || b.status === "CONFIRMED") ? (
+              {can("bookings.cancel") && b.status === "CONFIRMED" ? (
+                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5">
+                  <h2 className="text-xs font-bold uppercase tracking-wider text-amber-500">Cancel & refund</h2>
+                  {refundOpen(b) ? (
+                    <>
+                      <p className="mt-1 text-sm text-muted">
+                        For customers who called to cancel. Allowed until {when(b.showtime!.refundable_until)} (48 hours before the show).
+                      </p>
+                      <Button
+                        variant="secondary"
+                        disabled={act.busy}
+                        className="mt-3 w-full text-amber-500 hover:border-amber-500 hover:text-amber-500"
+                        onClick={async () => {
+                          const reason = await askRefundReason(b);
+                          if (reason && (await act.run(() => adm.post(`/bookings/${encodeURIComponent(b.id)}/refund-request`, { reason }), "Refund request sent to the refunds queue."))) {
+                            d.reload();
+                          }
+                        }}
+                      >
+                        <RotateCcw className="size-4" aria-hidden /> Send refund request
+                      </Button>
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-muted">Refunds close 48 hours before the show. This booking can no longer be refunded.</p>
+                  )}
+                </div>
+              ) : null}
+
+              {can("bookings.cancel") && [...UNPAID, "PAYMENT_REVIEW"].includes(b.status) ? (
+                <ExtendPayment
+                  deadline={b.payment_deadline_at}
+                  busy={act.busy}
+                  onExtend={(hours) => act.run(() => adm.post(`/bookings/${encodeURIComponent(b.id)}/extend-payment`, { hours }), "Payment time extended.")}
+                  onDone={d.reload}
+                />
+              ) : null}
+
+              {can("bookings.cancel") && UNPAID.includes(b.status) ? (
                 <div className="rounded-2xl border border-rose-500/30 bg-rose-500/5 p-5">
                   <h2 className="text-xs font-bold uppercase tracking-wider text-rose-500">Cancel booking</h2>
                   <p className="mt-1 text-sm text-muted">Cancelling puts the seats back on sale.</p>

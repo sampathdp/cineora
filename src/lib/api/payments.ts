@@ -54,5 +54,4 @@ export const paymentsApi = {
   },
   tickets: (bookingId: string) => apiGet<TicketInfo[]>(`/bookings/${encodeURIComponent(bookingId)}/tickets`).then((r) => r.data),
   myTickets: () => apiGet<TicketInfo[]>("/tickets").then((r) => r.data),
-  requestRefund: (bookingId: string, reason: string) => apiPost<{ id: string; status: string; amount: number }>(`/bookings/${encodeURIComponent(bookingId)}/refund-request`, { reason }).then((r) => r.data),
 };

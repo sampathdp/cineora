@@ -8,6 +8,7 @@ use App\Exceptions\DomainConflictException;
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
 use App\Services\Booking\BookingService;
+use App\Services\Payment\RefundService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,6 +70,28 @@ class BookingAdminController extends Controller
         return ApiResponse::success($this->present($cancelled->load(self::RELATIONS), $request), 'Booking cancelled and seats released.');
     }
 
+    /** Paid bookings: staff file a refund request for the customer (who asked by phone), before the cut-off. */
+    /** Unpaid bookings: staff give the customer more time to pay (seats stay held until then). */
+    public function extendPaymentTime(Request $request, Booking $booking, BookingService $bookings): JsonResponse
+    {
+        abort_unless($request->user()->canAt(Permission::BookingsCancel, $booking->cinema_id), 403);
+        $data = $request->validate(['hours' => ['required', 'integer', 'between:1,336']]);
+        // Extends from the current deadline, or from now if it already passed.
+        $base = $booking->payment_deadline_at->isFuture() ? $booking->payment_deadline_at->copy() : now();
+        $updated = $bookings->extendPaymentTime($booking, $request->user(), $base->addHours($data['hours']));
+
+        return ApiResponse::success($this->present($updated->load(self::RELATIONS), $request), 'Payment time extended.');
+    }
+
+    public function requestRefund(Request $request, Booking $booking, RefundService $refunds): JsonResponse
+    {
+        abort_unless($request->user()->canAt(Permission::BookingsCancel, $booking->cinema_id), 403);
+        $data = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:1000']]);
+        $refund = $refunds->request($booking, $request->user(), $data['reason']);
+
+        return ApiResponse::success(['id' => $refund->public_id, 'status' => $refund->status->value, 'amount' => (int) $refund->amount], 'Refund request sent to the refunds queue.', status: 201);
+    }
+
     private function present(Booking $b, Request $request, bool $detailed = false): array
     {
         $viewer = $request->user();
@@ -82,6 +105,7 @@ class BookingAdminController extends Controller
             'seats' => $b->seats->sortBy('seat_label', SORT_NATURAL)->map(fn ($s) => ['label' => $s->seat_label, 'category' => $s->category_name, 'unit_price' => (int) $s->unit_price])->values(),
             'showtime' => $b->showtime ? [
                 'id' => $b->showtime->public_id, 'starts_at' => $b->showtime->starts_at->copy()->utc()->toIso8601String(),
+                'refundable_until' => $b->showtime->starts_at->copy()->subHours((int) config('cineora.refund.cutoff_hours'))->utc()->toIso8601String(),
                 'movie' => $b->showtime->movie->title, 'cinema' => $b->showtime->cinema->name, 'room' => $b->showtime->room->name,
             ] : null,
             'customer' => $canSeeCustomer ? ['name' => $b->user->name, 'email' => $b->user->email] : null,

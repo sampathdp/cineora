@@ -14,7 +14,10 @@ use App\Models\SeatHold;
 use App\Models\Showtime;
 use App\Models\ShowtimeSeat;
 use App\Models\User;
+use App\Services\Audit\AuditLogger;
+use App\Services\Payment\SeatProtection;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -36,6 +39,8 @@ class BookingService
         private readonly BookingStateMachine $machine,
         private readonly SeatInventoryService $inventory,
         private readonly PromoService $promos,
+        private readonly SeatProtection $protection,
+        private readonly AuditLogger $audit,
     ) {}
 
     /**
@@ -199,6 +204,36 @@ class BookingService
                 $this->inventory->releaseHolds($b);
                 $this->promos->release($b);
             });
+        });
+    }
+
+    /**
+     * Staff give an unpaid booking more time to pay: the payment deadline and the seat hold both move to `$until`.
+     * Only possible while the booking still owns all its seats and before the show starts.
+     */
+    public function extendPaymentTime(Booking $booking, User $actor, Carbon $until): Booking
+    {
+        return DB::transaction(function () use ($booking, $actor, $until) {
+            $fresh = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($fresh->status, [BookingStatus::PENDING_PAYMENT, BookingStatus::PAYMENT_REJECTED, BookingStatus::PAYMENT_REVIEW], true)) {
+                throw new DomainConflictException('Only unpaid bookings can get more time to pay.', 'not_extendable');
+            }
+            $startsAt = Showtime::whereKey($fresh->showtime_id)->value('starts_at');
+            if ($startsAt !== null && $until->gte(Carbon::parse($startsAt))) {
+                throw new DomainConflictException('The new payment time must be before the show starts.', 'after_showtime');
+            }
+            if (! $this->protection->seatsIntact($fresh)) {
+                throw new DomainConflictException('The seats of this booking were already released, so its time cannot be extended.', 'seats_released');
+            }
+
+            $previous = $fresh->payment_deadline_at;
+            $this->protection->protectUntil($fresh, $until);
+            $fresh->forceFill(['payment_deadline_at' => $until])->save();
+            $this->audit->log('booking.payment_time_extended', $actor, 'booking', $fresh->public_id, [
+                'from' => $previous?->copy()->utc()->toIso8601String(), 'to' => $until->copy()->utc()->toIso8601String(),
+            ]);
+
+            return $fresh;
         });
     }
 

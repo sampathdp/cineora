@@ -16,7 +16,7 @@ import { PaymentPanel } from "./payment-panel";
 import { TicketList } from "./ticket-cards";
 import { paymentsApi, type TicketInfo } from "@/lib/api/payments";
 import { cn } from "@/lib/utils";
-import { confirmDialog, promptDialog } from "@/components/ui/dialogs";
+import { confirmDialog } from "@/components/ui/dialogs";
 
 /** Seconds left until `iso`, measured on the server's clock (so a wrong device clock cannot mislead). Informational only. */
 function useCountdown(iso: string | undefined, offset: number) {
@@ -29,7 +29,8 @@ function useCountdown(iso: string | undefined, offset: number) {
   return Math.max(0, Math.floor((Date.parse(iso) - (now + offset)) / 1000));
 }
 
-const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+const pad = (n: number) => String(n).padStart(2, "0");
+const fmt = (s: number) => (s >= 3600 ? `${Math.floor(s / 3600)}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}` : `${Math.floor(s / 60)}:${pad(s % 60)}`);
 
 export function StatusBadge({ status }: { status: ApiBooking["status"] }) {
   const tone =
@@ -64,7 +65,6 @@ export function BookingView({ id }: { id: string }) {
   const [cancelling, setCancelling] = useState(false);
   const [nonce, setNonce] = useState(0);
   const [tickets, setTickets] = useState<TicketInfo[] | null>(null);
-  const [refundBusy, setRefundBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -111,30 +111,6 @@ export function BookingView({ id }: { id: string }) {
   const st = booking.showtime;
   const when = st ? zonedParts(st.starts_at, st.cinema.timezone) : null;
   const pending = booking.status === "PENDING_PAYMENT";
-
-  async function requestRefund() {
-    if (!booking) return;
-    const reason = await promptDialog({
-      title: "Request a refund",
-      message: "Tell us why you would like a refund. Our team reviews every request.",
-      label: "Reason",
-      placeholder: "e.g. I can no longer attend",
-      minLength: 5,
-      multiline: true,
-      confirmLabel: "Send request",
-    });
-    if (!reason) return;
-    setRefundBusy(true);
-    setActionError(null);
-    try {
-      await paymentsApi.requestRefund(booking.id, reason.trim());
-      setNonce((n) => n + 1);
-    } catch (e) {
-      setActionError(e instanceof ApiError ? e.message : "Could not send the request.");
-    } finally {
-      setRefundBusy(false);
-    }
-  }
 
   async function cancel() {
     if (!booking || !(await confirmDialog({ title: "Cancel this booking?", message: "Your seats will be released.", confirmLabel: "Cancel booking", cancelLabel: "Keep booking", danger: true }))) return;
@@ -208,9 +184,12 @@ export function BookingView({ id }: { id: string }) {
           {actionError ? <FormMessage>{actionError}</FormMessage> : null}
           {booking.status === "CONFIRMED" ? (
             <div>
-              <Button variant="secondary" onClick={requestRefund} disabled={refundBusy}>
-                {refundBusy ? "Sending…" : "Request a refund"}
-              </Button>
+              <p className="rounded-card border border-line bg-surface p-4 text-sm text-muted">
+                Need to cancel? Call the cinema at least 48 hours before the show and our team will cancel the booking and arrange your refund.{" "}
+                <Link href="/contact" className="font-semibold text-accent-text hover:underline">
+                  Contact us
+                </Link>
+              </p>
             </div>
           ) : null}
           {pending || booking.status === "PAYMENT_REJECTED" ? (

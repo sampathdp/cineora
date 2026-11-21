@@ -95,27 +95,7 @@ class RoomService
                     $newSeat = $room->seats()->create($row + ['is_active' => true]);
                     $result['created']++;
 
-                    // Sync new seat into future showtimes for this room
-                    $futureShows = Showtime::where('room_id', $room->id)->where('starts_at', '>', now())->get(['id']);
-                    if ($futureShows->isNotEmpty()) {
-                        $showPrices = DB::table('showtime_seat_prices')
-                            ->where('seat_category_id', $row['seat_category_id'])
-                            ->whereIn('showtime_id', $futureShows->pluck('id'))
-                            ->pluck('price', 'showtime_id');
-                        $defaultPrice = $categories->firstWhere('id', $row['seat_category_id'])->default_price ?? 12000;
-
-                        $now = now();
-                        $newRows = $futureShows->map(fn ($show) => [
-                            'showtime_id' => $show->id,
-                            'seat_id' => $newSeat->id,
-                            'price' => $showPrices[$show->id] ?? $defaultPrice,
-                            'status' => 'available',
-                            'created_at' => $now,
-                            'updated_at' => $now,
-                        ])->all();
-
-                        DB::table('showtime_seats')->insertOrIgnore($newRows);
-                    }
+                    $this->syncIntoFutureShowtimes($room, $newSeat, $categories);
 
                     continue;
                 }
@@ -126,10 +106,16 @@ class RoomService
                 }
 
                 $catChanged = $seat->seat_category_id !== $row['seat_category_id'];
+                $reactivated = ! $seat->is_active;
                 $seat->fill($row + ['is_active' => true]);
                 if ($seat->isDirty()) {
                     $seat->save();
                     $result['updated']++;
+
+                    // A re-enabled seat goes back on sale in upcoming showtimes.
+                    if ($reactivated) {
+                        $this->syncIntoFutureShowtimes($room, $seat, $categories);
+                    }
 
                     // Reprice unbooked showtime seats for this seat if category changed
                     if ($catChanged) {
@@ -157,9 +143,15 @@ class RoomService
                     continue;
                 }
                 if (isset($inventory[$seat->id])) {
-                    // Remove unbooked showtime seats from inventory
-                    DB::table('showtime_seats')->where('seat_id', $seat->id)->where('status', 'available')->whereNull('booking_id')->delete();
-                    $seat->update(['is_active' => false]);
+                    $free = DB::table('showtime_seats')->where('seat_id', $seat->id)->where('status', 'available')->whereNull('booking_id');
+                    // Rows referenced by past holds/bookings cannot be deleted (FK restrict), so block them instead.
+                    $referenced = fn ($q) => $q->whereExists(fn ($e) => $e->from('seat_holds')->whereColumn('seat_holds.showtime_seat_id', 'showtime_seats.id'))
+                        ->orWhereExists(fn ($e) => $e->from('booking_seats')->whereColumn('booking_seats.showtime_seat_id', 'showtime_seats.id'));
+                    (clone $free)->where($referenced)->update(['status' => 'blocked', 'updated_at' => now()]);
+                    (clone $free)->whereNot($referenced)->delete();
+                    if ($seat->is_active) {
+                        $seat->update(['is_active' => false]);
+                    }
                     $result['deactivated']++;
                 } else {
                     $seat->delete();
@@ -171,5 +163,37 @@ class RoomService
 
             return $result;
         });
+    }
+
+    /** Puts a seat on sale in every upcoming, non-cancelled showtime of the room (adds missing rows, unblocks blocked ones). */
+    private function syncIntoFutureShowtimes(ScreeningRoom $room, Seat $seat, $categories): void
+    {
+        $showIds = Showtime::where('room_id', $room->id)
+            ->where('starts_at', '>', now())
+            ->whereIn('status', ['draft', 'on_sale'])
+            ->pluck('id');
+        if ($showIds->isEmpty()) {
+            return;
+        }
+
+        DB::table('showtime_seats')->where('seat_id', $seat->id)->whereIn('showtime_id', $showIds)
+            ->where('status', 'blocked')->whereNull('booking_id')
+            ->update(['status' => 'available', 'updated_at' => now()]);
+
+        $prices = DB::table('showtime_seat_prices')
+            ->where('seat_category_id', $seat->seat_category_id)
+            ->whereIn('showtime_id', $showIds)
+            ->pluck('price', 'showtime_id');
+        $defaultPrice = $categories->firstWhere('id', $seat->seat_category_id)->default_price ?? 12000;
+        $now = now();
+
+        DB::table('showtime_seats')->insertOrIgnore($showIds->map(fn ($id) => [
+            'showtime_id' => $id,
+            'seat_id' => $seat->id,
+            'price' => $prices[$id] ?? $defaultPrice,
+            'status' => 'available',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ])->all());
     }
 }

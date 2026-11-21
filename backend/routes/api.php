@@ -91,7 +91,6 @@ Route::prefix('v1')->group(function () {
         Route::post('/bookings/{booking}/payment/proof', [PaymentController::class, 'submit'])->middleware('throttle:proof');
         Route::get('/bookings/{booking}/payment/proofs/{proof}', [PaymentController::class, 'proof'])->whereNumber('proof');
         Route::get('/bookings/{booking}/tickets', [TicketController::class, 'forBooking']);
-        Route::post('/bookings/{booking}/refund-request', [TicketController::class, 'requestRefund'])->middleware('throttle:booking');
         Route::get('/tickets', [TicketController::class, 'index']);
     });
 
@@ -156,6 +155,8 @@ Route::prefix('v1')->group(function () {
         Route::get('/bookings', [BookingAdminController::class, 'index']);
         Route::get('/bookings/{booking}', [BookingAdminController::class, 'show']);
         Route::post('/bookings/{booking}/cancel', [BookingAdminController::class, 'cancel']);
+        Route::post('/bookings/{booking}/refund-request', [BookingAdminController::class, 'requestRefund']);
+        Route::post('/bookings/{booking}/extend-payment', [BookingAdminController::class, 'extendPaymentTime']);
         Route::get('/customers', [CustomerAdminController::class, 'index']);
         Route::get('/customers/{user}', [CustomerAdminController::class, 'show']);
 

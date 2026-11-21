@@ -26,8 +26,8 @@ return [
     ],
 
     'refund' => [
-        // Customers may request a refund of a confirmed booking until this many hours before the show.
-        'cutoff_hours' => (int) env('REFUND_CUTOFF_HOURS', 2),
+        // Staff may file a refund for a confirmed booking (on the customer's behalf) until this many hours before the show.
+        'cutoff_hours' => (int) env('REFUND_CUTOFF_HOURS', 48),
     ],
 
     'ticket' => [
@@ -37,9 +37,9 @@ return [
 
     'booking' => [
         // Minutes a seat selection is protected while the customer reaches the payment step.
-        'seat_hold_minutes' => (int) env('BOOKING_SEAT_HOLD_MINUTES', 15),
+        'seat_hold_minutes' => (int) env('BOOKING_SEAT_HOLD_MINUTES', 120),
         // Minutes from booking creation until a bank transfer must be submitted.
-        'payment_deadline_minutes' => (int) env('BOOKING_PAYMENT_DEADLINE_MINUTES', 30),
+        'payment_deadline_minutes' => (int) env('BOOKING_PAYMENT_DEADLINE_MINUTES', 120),
         'max_seats_per_booking' => (int) env('BOOKING_MAX_SEATS', 8),
         'max_active_unpaid_bookings' => (int) env('BOOKING_MAX_UNPAID', 3),
         // Whole won per seat; 0 disables the service fee.

@@ -18,8 +18,9 @@ use App\Services\Notification\Outbox;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Refunds of money that was actually received. Customers can ask for confirmed bookings until shortly before the
- * show; staff with `refunds.decide` deny or pay. Tickets are voided as soon as a request is made so they cannot be
+ * Refunds of money that was actually received. Customers cannot ask online: they contact the cinema and staff file the
+ * request on their behalf for a confirmed booking, up to `cineora.refund.cutoff_hours` before the show; staff with
+ * `refunds.decide` deny or pay. Tickets are voided as soon as a request is made so they cannot be
  * used while it is open, and restored if the request is denied. Whole-booking refunds only.
  */
 class RefundService
@@ -31,32 +32,31 @@ class RefundService
         private readonly AuditLogger $audit,
     ) {}
 
-    public function request(Booking $booking, User $customer, string $reason): RefundRequest
+    /** Who may file it is checked by the caller (staff with `bookings.cancel` for the booking's cinema). */
+    public function request(Booking $booking, User $actor, string $reason): RefundRequest
     {
-        return DB::transaction(function () use ($booking, $customer, $reason) {
+        return DB::transaction(function () use ($booking, $actor, $reason) {
             $locked = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
-            if ($locked->user_id !== $customer->id) {
-                abort(404);
-            }
             if ($locked->status !== BookingStatus::CONFIRMED) {
                 throw new DomainConflictException('Only confirmed bookings can be refunded.', 'not_refundable');
             }
-            if ($locked->showtime->starts_at->lte(now()->addHours((int) config('cineora.refund.cutoff_hours')))) {
-                throw new DomainConflictException('Refunds can no longer be requested for this showtime.', 'refund_window_closed');
+            $cutoff = (int) config('cineora.refund.cutoff_hours');
+            if ($locked->showtime->starts_at->lte(now()->addHours($cutoff))) {
+                throw new DomainConflictException("Refunds can only be requested up to {$cutoff} hours before the show.", 'refund_window_closed');
             }
             if (Ticket::where('booking_id', $locked->id)->where('status', TicketStatus::Used->value)->exists()) {
                 throw new DomainConflictException('Some tickets were already used, so this booking cannot be refunded.', 'tickets_used');
             }
 
-            $refund = new RefundRequest(['booking_id' => $locked->id, 'requested_by' => $customer->id, 'reason' => $reason, 'amount' => (int) $locked->total]);
+            $refund = new RefundRequest(['booking_id' => $locked->id, 'requested_by' => $actor->id, 'reason' => $reason, 'amount' => (int) $locked->total]);
             $refund->status = RefundStatus::Pending;
             $refund->save();
 
-            $this->machine->transition($locked, BookingStatus::REFUND_PENDING, $customer, 'refund requested', function (Booking $b) {
+            $this->machine->transition($locked, BookingStatus::REFUND_PENDING, $actor, 'refund requested', function (Booking $b) {
                 Ticket::where('booking_id', $b->id)->where('status', TicketStatus::Valid->value)->update(['status' => TicketStatus::Void->value]);
                 Outbox::publish('refund.requested', ['booking_id' => $b->id]);
             });
-            $this->audit->log('refund.requested', $customer, 'refund', $refund->public_id, ['booking' => $locked->public_id, 'amount' => (int) $refund->amount]);
+            $this->audit->log('refund.requested', $actor, 'refund', $refund->public_id, ['booking' => $locked->public_id, 'amount' => (int) $refund->amount]);
 
             return $refund;
         });

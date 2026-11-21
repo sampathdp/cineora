@@ -103,7 +103,7 @@ export function Checkout() {
             </h2>
             <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-muted">
               <li>
-                We hold your seats for <strong className="text-foreground">15 minutes</strong> while you pay by bank transfer.
+                We hold your seats for <strong className="text-foreground">2 hours</strong> while you pay by bank transfer.
               </li>
               <li>Upload your transfer proof. A member of staff verifies it and your tickets are issued.</li>
               <li>If nothing is submitted in time, the seats are released automatically.</li>
@@ -144,7 +144,7 @@ export function Checkout() {
               <Link href="/terms" className="font-semibold text-accent-text hover:underline">
                 terms
               </Link>{" "}
-              and understand my seats are held for 15 minutes.
+              and understand my seats are held for 2 hours.
             </span>
           </label>
 

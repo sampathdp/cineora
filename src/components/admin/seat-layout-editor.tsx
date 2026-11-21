@@ -141,7 +141,6 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
     return c;
   };
   const maxSeats = Math.max(...editable.map((r) => colOf(r.label, r.count)), 1);
-  const mid = Math.floor(maxSeats / 2);
 
   /** Adds (+1) or removes (-1) one walkway column right before a seat. Seat numbers never change. */
   function changeAisle(row: string, number: number, delta: 1 | -1) {
@@ -709,14 +708,14 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
                         seatAt.set(c, n);
                         for (let k = 1; k <= (aisles[`${r.label}-${n}`] ?? 0); k++) walkAt.set(c - k, n);
                       }
-                      const track = (c: number) => (c <= mid ? c + 1 : c + 2);
+                      const track = (c: number) => c + 1;
 
                       return (
                         <div
                           key={r.label}
                           className="grid items-center gap-x-1 sm:gap-x-1.5"
                           style={{
-                            gridTemplateColumns: `1.25rem repeat(${mid}, minmax(0, 1fr)) 1.5rem repeat(${maxSeats - mid}, minmax(0, 1fr)) 1.25rem`,
+                            gridTemplateColumns: `1.25rem repeat(${maxSeats}, minmax(0, 1fr)) 1.25rem`,
                           }}
                         >
                           <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted select-none" style={{ gridColumnStart: 1 }}>
@@ -789,7 +788,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
                             );
                           })}
 
-                          <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted select-none" style={{ gridColumnStart: maxSeats + 3 }}>
+                          <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted select-none" style={{ gridColumnStart: maxSeats + 2 }}>
                             {r.label}
                           </span>
                         </div>

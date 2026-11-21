@@ -77,9 +77,8 @@ export function SeatSelector({ showtime, rows, bookable, embedded = false }: Pro
   }
 
   const maxCol = Math.max(...allSeats.map((s) => s.col), 1);
-  const mid = Math.floor(maxCol / 2);
-  // Grid track 1 is the row letter and track mid+2 the centre aisle; walkway gaps are simply unused columns.
-  const trackOf = (col: number) => (col <= mid ? col + 1 : col + 2);
+  // Grid track 1 is the row letter; walkway gaps are simply unused columns.
+  const trackOf = (col: number) => col + 1;
 
   const map = (
     <section aria-label="Seat map" className="min-w-0">
@@ -135,7 +134,7 @@ export function SeatSelector({ showtime, rows, bookable, embedded = false }: Pro
               <div
                 key={row[0].row}
                 className="grid items-center gap-x-1 sm:gap-x-1.5"
-                style={{ gridTemplateColumns: `1.25rem repeat(${mid}, minmax(0, 1fr)) 1.5rem repeat(${maxCol - mid}, minmax(0, 1fr)) 1.25rem` }}
+                style={{ gridTemplateColumns: `1.25rem repeat(${maxCol}, minmax(0, 1fr)) 1.25rem` }}
               >
                 <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted" style={{ gridColumnStart: 1 }}>
                   {row[0].row}
@@ -164,7 +163,7 @@ export function SeatSelector({ showtime, rows, bookable, embedded = false }: Pro
                     </span>
                   );
                 })}
-                <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted" style={{ gridColumnStart: maxCol + 3 }}>
+                <span aria-hidden className="text-center text-[0.65rem] font-bold text-muted" style={{ gridColumnStart: maxCol + 2 }}>
                   {row[0].row}
                 </span>
               </div>

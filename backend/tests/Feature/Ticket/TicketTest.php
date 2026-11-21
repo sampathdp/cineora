@@ -260,13 +260,14 @@ class TicketTest extends TicketTestCase
     {
         $booking = $this->confirmed();
         $admin = $this->staff(Role::SuperAdmin);
+        $url = "/api/v1/admin/bookings/{$booking->public_id}/refund-request";
 
-        $this->as($this->customer)->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'x'])->assertStatus(422);
-        $id = $this->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'I cannot attend any more'])->assertCreated()->json('data.id');
+        $this->as($admin)->postJson($url, ['reason' => 'x'])->assertStatus(422);
+        $id = $this->postJson($url, ['reason' => 'Customer called: cannot attend'])->assertCreated()->json('data.id');
 
         $this->assertSame(BookingStatus::REFUND_PENDING, $booking->fresh()->status);
         $this->assertSame(2, Ticket::where('booking_id', $booking->id)->where('status', 'void')->count());
-        $this->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'asking twice again'])->assertStatus(409);
+        $this->postJson($url, ['reason' => 'asking twice again'])->assertStatus(409);
 
         // While open, the ticket does not admit anyone.
         $this->travelToDoors();
@@ -284,10 +285,10 @@ class TicketTest extends TicketTestCase
     public function test_a_paid_refund_refunds_the_tickets_and_puts_the_seats_back_on_sale(): void
     {
         $booking = $this->confirmed();
-        $id = $this->as($this->customer)->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'plans changed for me'])->json('data.id');
-
         $admin = $this->staff(Role::SuperAdmin);
-        $this->as($admin)->postJson("/api/v1/admin/refunds/{$id}/pay", [])->assertStatus(422);
+        $id = $this->as($admin)->postJson("/api/v1/admin/bookings/{$booking->public_id}/refund-request", ['reason' => 'plans changed for me'])->json('data.id');
+
+        $this->postJson("/api/v1/admin/refunds/{$id}/pay", [])->assertStatus(422);
         $this->postJson("/api/v1/admin/refunds/{$id}/pay", ['reference' => 'KB-20261108-001'])->assertOk()->assertJsonPath('data.status', 'paid');
 
         $this->assertSame(BookingStatus::REFUNDED, $booking->fresh()->status);
@@ -299,22 +300,32 @@ class TicketTest extends TicketTestCase
         $this->assertSame(1, DB::table('refund_transactions')->count(), 'a refund cannot be paid out twice');
     }
 
-    public function test_refund_rules_window_ownership_and_used_tickets(): void
+    public function test_customers_cannot_request_refunds_themselves(): void
     {
         $booking = $this->confirmed();
-        $stranger = $this->customer();
-        $this->as($stranger)->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'not even my booking'])->assertNotFound();
+        $this->as($this->customer)->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'trying it myself'])->assertNotFound();
+        $this->as($this->customer)->postJson("/api/v1/admin/bookings/{$booking->public_id}/refund-request", ['reason' => 'trying it myself'])->assertForbidden();
+        $this->as($this->verifier)->postJson("/api/v1/admin/bookings/{$booking->public_id}/refund-request", ['reason' => 'no permission here'])->assertForbidden();
+        $this->assertSame(BookingStatus::CONFIRMED, $booking->fresh()->status);
+    }
 
-        $this->travelToDoors(); // 30 minutes before the show: inside the 2 hour cut-off
-        $this->as($this->customer)->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'too late but trying'])->assertStatus(409)->assertJson(['code' => 'refund_window_closed']);
+    public function test_refund_rules_window_and_used_tickets(): void
+    {
+        $booking = $this->confirmed();
+        $admin = $this->staff(Role::SuperAdmin);
+        $url = "/api/v1/admin/bookings/{$booking->public_id}/refund-request";
+
+        // 47 hours before the show: inside the 48 hour cut-off.
+        Carbon::setTestNow($this->showtime->fresh()->starts_at->copy()->subHours(47));
+        $this->as($admin)->postJson($url, ['reason' => 'too late but trying'])->assertStatus(409)->assertJson(['code' => 'refund_window_closed']);
         Carbon::setTestNow();
 
         $this->scanAtDoors(Ticket::where('booking_id', $booking->id)->first());
-        $this->as($this->customer)->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'one ticket already used'])->assertStatus(409);
+        $this->as($admin)->postJson($url, ['reason' => 'one ticket already used'])->assertStatus(409);
         $this->assertSame(BookingStatus::CONFIRMED, $booking->fresh()->status);
 
         $pending = $this->reserve($this->customer(), ['B1']);
-        $this->as($pending->user)->postJson("/api/v1/bookings/{$pending->public_id}/refund-request", ['reason' => 'never paid at all'])->assertStatus(409)->assertJson(['code' => 'not_refundable']);
+        $this->as($admin)->postJson("/api/v1/admin/bookings/{$pending->public_id}/refund-request", ['reason' => 'never paid at all'])->assertStatus(409)->assertJson(['code' => 'not_refundable']);
     }
 
     private function scanAtDoors(Ticket $ticket): void
@@ -327,7 +338,7 @@ class TicketTest extends TicketTestCase
     public function test_refund_queue_is_limited_to_authorised_staff(): void
     {
         $booking = $this->confirmed();
-        $this->as($this->customer)->postJson("/api/v1/bookings/{$booking->public_id}/refund-request", ['reason' => 'queue visibility check'])->assertCreated();
+        $this->as($this->staff(Role::SuperAdmin))->postJson("/api/v1/admin/bookings/{$booking->public_id}/refund-request", ['reason' => 'queue visibility check'])->assertCreated();
 
         $this->as($this->verifier)->getJson('/api/v1/admin/refunds')->assertForbidden();
         $this->as($this->checker)->getJson('/api/v1/admin/refunds')->assertForbidden();
