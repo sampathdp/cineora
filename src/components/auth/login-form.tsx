@@ -46,7 +46,7 @@ export function LoginForm() {
       footer={
         <>
           New to AR Entertainment?{" "}
-          <Link href="/register" className="font-semibold text-accent-text hover:underline">
+          <Link href={`/register?next=${encodeURIComponent(next)}`} className="font-semibold text-accent-text hover:underline">
             Create an account
           </Link>
         </>

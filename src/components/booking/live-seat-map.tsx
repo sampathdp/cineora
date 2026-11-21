@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LogIn, RefreshCw } from "lucide-react";
+import { useAuth } from "@/providers/auth-provider";
 import { fetchSeats, type ApiSeat, type ApiShowtime } from "@/lib/api/catalog";
 import { ApiError } from "@/lib/api/client";
 import { groupSeats } from "@/lib/seats";
@@ -18,6 +21,8 @@ interface State {
 
 /** Fetches the live seat state for a showtime and renders the selectable map. */
 export function LiveSeatMap({ showtime, embedded }: { showtime: ApiShowtime; embedded?: boolean }) {
+  const { status } = useAuth();
+  const pathname = usePathname();
   const [state, setState] = useState<State | null>(null);
   const [nonce, setNonce] = useState(0);
   const key = `${showtime.id}:${nonce}`;
@@ -37,7 +42,28 @@ export function LiveSeatMap({ showtime, embedded }: { showtime: ApiShowtime; emb
   const rows = useMemo(() => (state?.seats ? groupSeats(state.seats) : null), [state]);
   const ready = state?.key === key ? state : null;
 
-  if (!ready) {
+  // Seat booking needs an account: guests are sent to sign in (or register) and come back here afterwards.
+  if (status === "anonymous") {
+    const next = encodeURIComponent(pathname + (typeof window !== "undefined" ? window.location.search : ""));
+    return (
+      <EmptyState
+        title="Sign in to book seats"
+        description="Please sign in or create an account to choose your seats and book tickets."
+        action={
+          <div className="flex flex-wrap justify-center gap-3">
+            <Link href={`/login?next=${next}`} className="inline-flex min-h-11 items-center gap-2 rounded-control bg-accent px-6 font-semibold text-on-accent hover:bg-accent-hover">
+              <LogIn className="size-4" aria-hidden /> Sign in
+            </Link>
+            <Link href={`/register?next=${next}`} className="inline-flex min-h-11 items-center rounded-control border border-line px-6 font-semibold hover:border-accent">
+              Create account
+            </Link>
+          </div>
+        }
+      />
+    );
+  }
+
+  if (!ready || status === "loading") {
     return (
       <div aria-busy="true" aria-label="Loading seat map">
         <Skeleton className="h-96" />

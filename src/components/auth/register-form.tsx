@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { safeRedirect } from "@/lib/safe-redirect";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -33,6 +35,9 @@ const schema = z
 type Values = z.infer<typeof schema>;
 
 export function RegisterForm() {
+  // Where to land after the customer signs in (e.g. back to the seat map).
+  const rawNext = useSearchParams().get("next");
+  const loginHref = rawNext ? `/login?next=${encodeURIComponent(safeRedirect(rawNext))}` : "/login";
   const [done, setDone] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const {
@@ -60,7 +65,7 @@ export function RegisterForm() {
           <p className="text-muted">
             If <strong className="text-foreground">{done}</strong> can be registered, we have sent a message with the next steps. The link is valid for 60 minutes.
           </p>
-          <Link href="/login" className="font-semibold text-accent-text hover:underline">
+          <Link href={loginHref} className="font-semibold text-accent-text hover:underline">
             Continue to sign in
           </Link>
         </div>
@@ -75,7 +80,7 @@ export function RegisterForm() {
       footer={
         <>
           Already registered?{" "}
-          <Link href="/login" className="font-semibold text-accent-text hover:underline">
+          <Link href={loginHref} className="font-semibold text-accent-text hover:underline">
             Sign in
           </Link>
         </>
