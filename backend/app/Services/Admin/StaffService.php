@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Policies\UserPolicy;
 use App\Services\Audit\AuditLogger;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -32,20 +31,39 @@ class StaffService
     public function create(User $actor, array $data): User
     {
         return DB::transaction(function () use ($actor, $data) {
-            $user = new User(['name' => $data['name'], 'email' => mb_strtolower(trim($data['email'])), 'password' => Str::random(48)]);
+            $user = new User(['name' => $data['name'], 'email' => mb_strtolower(trim($data['email'])), 'password' => $data['password']]);
             $roles = $this->resolveRoles($actor, $user, $data['roles']);
             $cinemaIds = $this->resolveCinemas($actor, $data['cinemas'] ?? []);
 
             $user->is_active = true;
-            $user->email_verified_at = now(); // created by an administrator; the person sets their own password via the reset link
+            $user->email_verified_at = now(); // created by an administrator, who also sets the first password
             $user->save();
             $user->roles()->attach($roles->mapWithKeys(fn ($r) => [$r->id => ['assigned_by' => $actor->id]])->all());
             $user->cinemas()->sync($cinemaIds);
 
             $this->audit->log('staff.created', $actor, 'user', $user->public_id, ['roles' => $roles->pluck('key')->all(), 'cinemas' => count($cinemaIds)]);
-            Password::sendResetLink(['email' => $user->email]); // invitation: choose a password
 
             return $user->load(['roles', 'cinemas']);
+        });
+    }
+
+    /**
+     * An administrator sets a staff member's password directly (no email involved). Every session of that person is
+     * signed out, so the old password stops working everywhere at once.
+     */
+    public function setPassword(User $actor, User $target, string $password): void
+    {
+        if ($actor->is($target)) {
+            throw new DomainConflictException('Change your own password from your account page.', 'self_modification');
+        }
+        if ($target->isSuperAdmin() && ! $actor->isSuperAdmin()) {
+            throw new DomainConflictException('Only a super admin can set the password of a super admin.', 'not_allowed');
+        }
+
+        DB::transaction(function () use ($actor, $target, $password) {
+            $target->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
+            DB::table('sessions')->where('user_id', $target->id)->delete();
+            $this->audit->log('staff.password_set', $actor, 'user', $target->public_id);
         });
     }
 

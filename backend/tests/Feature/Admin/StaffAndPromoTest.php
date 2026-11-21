@@ -9,34 +9,50 @@ use App\Models\Cinema;
 use App\Models\PromoCode;
 use App\Models\PromoRedemption;
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 
 class StaffAndPromoTest extends AdminTestCase
 {
     private function create(array $over = [])
     {
-        return $this->postJson('/api/v1/admin/staff', array_merge(['name' => 'New Person', 'email' => 'new.person@example.test', 'roles' => ['ticket_checker'], 'cinemas' => [$this->cinema->public_id]], $over));
+        return $this->postJson('/api/v1/admin/staff', array_merge(['name' => 'New Person', 'email' => 'new.person@example.test', 'password' => 'Str0ngPassw0rd', 'roles' => ['ticket_checker'], 'cinemas' => [$this->cinema->public_id]], $over));
     }
 
-    public function test_super_admin_creates_staff_who_must_set_their_own_password(): void
+    public function test_super_admin_creates_staff_with_a_password_and_no_email(): void
     {
         Notification::fake();
-        $r = $this->as($this->admin)->postJson('/api/v1/admin/staff', ['name' => 'New Person', 'email' => 'New.Person@Example.test', 'roles' => ['ticket_checker'], 'cinemas' => [$this->cinema->public_id]])->assertCreated();
+        $r = $this->as($this->admin)->postJson('/api/v1/admin/staff', ['name' => 'New Person', 'email' => 'New.Person@Example.test', 'password' => 'Str0ngPassw0rd', 'roles' => ['ticket_checker'], 'cinemas' => [$this->cinema->public_id]])->assertCreated();
 
         $user = User::where('email', 'new.person@example.test')->firstOrFail();
         $this->assertSame(['ticket_checker'], $user->roleKeys()->all());
         $this->assertSame([$this->cinema->id], $user->cinemas()->pluck('cinemas.id')->all());
         $this->assertTrue($user->is_active);
-        Notification::assertSentTo($user, ResetPassword::class);
+        Notification::assertNothingSent();
         $this->assertArrayNotHasKey('password', $r->json('data'));
         $this->assertSame(1, AuditLog::where('action', 'staff.created')->count());
 
-        // The random placeholder password is unusable: nobody knows it.
-        $this->app['session.store']->flush();
-        $this->app['auth']->forgetGuards();
-        $this->postJson('/api/v1/auth/staff/login', ['email' => 'new.person@example.test', 'password' => 'password'])->assertStatus(422);
+        // The password the admin chose is the one stored.
+        $this->assertTrue(Hash::check('Str0ngPassw0rd', $user->fresh()->password));
+    }
+
+    public function test_admin_sets_a_staff_password_without_email(): void
+    {
+        Notification::fake();
+        $this->as($this->admin);
+        $this->create()->assertCreated();
+        $user = User::where('email', 'new.person@example.test')->firstOrFail();
+
+        $this->putJson("/api/v1/admin/staff/{$user->public_id}/password", ['password' => 'short'])->assertStatus(422);
+        $this->putJson("/api/v1/admin/staff/{$user->public_id}/password", ['password' => 'An0therGoodOne'])->assertOk();
+        $this->assertTrue(Hash::check('An0therGoodOne', $user->fresh()->password));
+        $this->assertSame(1, AuditLog::where('action', 'staff.password_set')->count());
+        Notification::assertNothingSent();
+
+        // Not for your own account, and only staff managers may do it.
+        $this->putJson("/api/v1/admin/staff/{$this->admin->public_id}/password", ['password' => 'An0therGoodOne'])->assertStatus(409);
+        $this->as($this->checker)->putJson("/api/v1/admin/staff/{$user->public_id}/password", ['password' => 'An0therGoodOne'])->assertNotFound();
     }
 
     public function test_staff_management_is_restricted_and_validated(): void
@@ -110,7 +126,7 @@ class StaffAndPromoTest extends AdminTestCase
         $this->patchJson("/api/v1/admin/staff/{$this->admin->public_id}", ['roles' => ['ticket_checker']])->assertStatus(409);
 
         // With a second super admin, one may demote the other; the survivor is then protected again.
-        $second = $this->as($this->admin)->postJson('/api/v1/admin/staff', ['name' => 'Second Admin', 'email' => 'second.admin@example.test', 'roles' => ['super_admin']])->assertCreated()->json('data.id');
+        $second = $this->as($this->admin)->postJson('/api/v1/admin/staff', ['name' => 'Second Admin', 'email' => 'second.admin@example.test', 'password' => 'Str0ngPassw0rd', 'roles' => ['super_admin']])->assertCreated()->json('data.id');
         $this->assertFalse($this->admin->fresh()->isLastActiveSuperAdmin());
         $secondUser = User::where('public_id', $second)->first();
         $this->as($secondUser)->patchJson("/api/v1/admin/staff/{$this->admin->public_id}", ['roles' => ['ticket_checker']])->assertOk();

@@ -12,6 +12,7 @@ use App\Services\Auth\MfaService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 /** Staff accounts, roles and permissions. Escalation rules are enforced in StaffService. */
 class StaffAdminController extends Controller
@@ -36,13 +37,24 @@ class StaffAdminController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'min:2', 'max:120'],
             'email' => ['required', 'email:rfc', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'max:255', PasswordRule::defaults()],
             'roles' => ['required', 'array', 'min:1', 'max:6'],
             'roles.*' => ['string', 'max:64'],
             'cinemas' => ['sometimes', 'array', 'max:50'],
             'cinemas.*' => ['string', 'size:26'],
         ]);
 
-        return ApiResponse::success($this->present($this->staff->create($request->user(), $data)), 'Account created. An email with a link to set a password was sent.', status: 201);
+        return ApiResponse::success($this->present($this->staff->create($request->user(), $data)), 'Staff account created.', status: 201);
+    }
+
+    /** Sets a new password for a staff member (no email). Signs them out everywhere. */
+    public function password(Request $request, User $user): JsonResponse
+    {
+        abort_unless($request->user()->hasPermission(Permission::StaffManage) && $user->isStaffOrHadRoles(), 404);
+        $data = $request->validate(['password' => ['required', 'string', 'max:255', PasswordRule::defaults()]]);
+        $this->staff->setPassword($request->user(), $user, $data['password']);
+
+        return ApiResponse::success(null, 'Password updated. They were signed out of every device.');
     }
 
     public function update(Request $request, User $user): JsonResponse

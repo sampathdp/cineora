@@ -163,6 +163,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/staff', [StaffAdminController::class, 'store']);
         Route::patch('/staff/{user}', [StaffAdminController::class, 'update']);
         Route::post('/staff/{user}/reset-mfa', [StaffAdminController::class, 'resetMfa']);
+        Route::put('/staff/{user}/password', [StaffAdminController::class, 'password']);
         Route::get('/roles', [StaffAdminController::class, 'roles']);
         Route::get('/permissions', [StaffAdminController::class, 'permissions']);
         Route::post('/roles', [StaffAdminController::class, 'storeRole']);

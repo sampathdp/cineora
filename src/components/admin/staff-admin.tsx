@@ -7,7 +7,7 @@ import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { AdminModal, DataTable, Feedback, PageTitle, Panel, Pill, Section, TextField, useAction, useLoad, when } from "./kit";
 import { cn } from "@/lib/utils";
-import { confirmDialog } from "@/components/ui/dialogs";
+import { alertDialog, confirmDialog, promptDialog } from "@/components/ui/dialogs";
 
 interface Staff {
   id: string;
@@ -262,6 +262,8 @@ function StaffEditor({
   const act = useAction();
   const [name, setName] = useState(person?.name ?? "");
   const [email, setEmail] = useState(person?.email ?? "");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [chosenRoles, setChosenRoles] = useState<string[]>(person?.roles ?? []);
   const [chosenCinemas, setChosenCinemas] = useState<string[]>(person?.cinemas.map((c) => c.id) ?? []);
   const staffRoles = roles.filter((r) => r.key !== "customer");
@@ -275,10 +277,23 @@ function StaffEditor({
           () => adm.patch(`/staff/${person.id}`, { name, ...(isSelf ? {} : { roles: chosenRoles }), cinemas: chosenCinemas }),
           "Saved.",
         )
-      : await act.run(
-          () => adm.post("/staff", { name, email, roles: chosenRoles, cinemas: chosenCinemas }),
-          "Staff created. An invitation email was sent.",
-        );
+      : await act.run(() => adm.post("/staff", { name, email, password, roles: chosenRoles, cinemas: chosenCinemas }));
+    if (r && !person) {
+      await alertDialog({
+        title: "Staff member added",
+        message: (
+          <>
+            Give these sign-in details to {name} privately:
+            <span className="mt-2 block rounded-lg border border-line bg-surface p-3 font-mono text-sm text-foreground">
+              {email}
+              <br />
+              {password}
+            </span>
+          </>
+        ),
+        tone: "success",
+      });
+    }
     if (r) onSaved();
   }
 
@@ -312,6 +327,38 @@ function StaffEditor({
               disabled={!!person}
             />
           </div>
+          {!person && (
+            <div>
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <TextField
+                    id="s-password"
+                    label="Password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    error={act.fields.password}
+                  />
+                </div>
+                <Button type="button" variant="secondary" className="h-11" onClick={() => setShowPassword((s) => !s)}>
+                  {showPassword ? "Hide" : "Show"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11"
+                  onClick={() => {
+                    setPassword(generatePassword());
+                    setShowPassword(true);
+                  }}
+                >
+                  Generate
+                </Button>
+              </div>
+              <p className="mt-1.5 text-xs text-muted">At least 10 characters with an uppercase letter, a lowercase letter and a number.</p>
+            </div>
+          )}
         </div>
 
         {/* Roles Selection */}
@@ -385,7 +432,7 @@ function StaffEditor({
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 pt-4">
           <div className="flex items-center gap-2.5">
-            <Button type="submit" disabled={act.busy || !name || chosenRoles.length === 0} className="shadow-sm">
+            <Button type="submit" disabled={act.busy || !name || chosenRoles.length === 0 || (!person && password.length < 10)} className="shadow-sm">
               {act.busy ? "Saving…" : "Save Changes"}
             </Button>
             <Button type="button" variant="ghost" onClick={onClose} className="cursor-pointer">
@@ -394,6 +441,40 @@ function StaffEditor({
           </div>
 
           <div className="flex items-center gap-2">
+            {person && !isSelf && (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={act.busy}
+                onClick={async () => {
+                  const next = await promptDialog({
+                    title: `Set a new password for ${person.name}`,
+                    message: "They are signed out of every device and must use this password from now on.",
+                    label: "New password",
+                    defaultValue: generatePassword(),
+                    minLength: 10,
+                    confirmLabel: "Set password",
+                  });
+                  if (!next) return;
+                  // The modal stays open so the success or error note is visible.
+                  if (await act.run(() => adm.put(`/staff/${person.id}/password`, { password: next }), "Password updated.")) {
+                    await alertDialog({
+                      title: "Password updated",
+                      message: (
+                        <>
+                          Give the new password to {person.name} privately:
+                          <span className="mt-2 block rounded-lg border border-line bg-surface p-3 font-mono text-sm text-foreground">{next}</span>
+                        </>
+                      ),
+                      tone: "success",
+                    });
+                  }
+                }}
+                className="text-xs"
+              >
+                Set password
+              </Button>
+            )}
             {person && !isSelf && canResetMfa && (
               <Button
                 type="button"
@@ -658,4 +739,17 @@ function Roles() {
       )}
     </div>
   );
+}
+
+/** 14 random characters that always include an uppercase letter, a lowercase letter and a number. */
+function generatePassword(): string {
+  const sets = ["ABCDEFGHJKLMNPQRSTUVWXYZ", "abcdefghijkmnpqrstuvwxyz", "23456789"];
+  const all = sets.join("");
+  const pick = (chars: string) => chars[crypto.getRandomValues(new Uint32Array(1))[0] % chars.length];
+  const out = [...sets.map(pick), ...Array.from({ length: 11 }, () => pick(all))];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1);
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join("");
 }
