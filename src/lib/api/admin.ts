@@ -44,7 +44,7 @@ export interface AdminBankAccount {
   id: string;
   bank_name: string;
   account_name: string;
-  account_number: string;
+  account_number: string | null;
   branch: string | null;
   swift: string | null;
   instructions: string | null;
@@ -78,7 +78,7 @@ export const adminApi = {
   bankAccounts: () => apiGet<AdminBankAccount[]>("/admin/bank-accounts").then((r) => r.data),
   addBankAccount: (input: { bank_name: string; account_name: string; account_number: string; branch?: string; swift?: string; instructions?: string }) =>
     apiPost<AdminBankAccount>("/admin/bank-accounts", input).then((r) => r.data),
-  updateBankAccount: (id: string, input: Partial<{ is_active: boolean }>) => apiPatch<AdminBankAccount>(`/admin/bank-accounts/${enc(id)}`, input).then((r) => r.data),
+  updateBankAccount: (id: string, input: Partial<{ is_active: boolean; account_number: string }>) => apiPatch<AdminBankAccount>(`/admin/bank-accounts/${enc(id)}`, input).then((r) => r.data),
 
   validateTicket: (input: { code?: string; reference?: string; showtime?: string }) => apiPost<ScanResult>("/admin/tickets/validate", input).then((r) => r.data),
   recentScans: () => apiGet<{ outcome: string; seat: string | null; at: string | null }[]>("/admin/tickets/recent").then((r) => r.data),

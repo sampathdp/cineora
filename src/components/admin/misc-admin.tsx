@@ -333,9 +333,13 @@ export function BankAccounts() {
                     <p className="font-extrabold text-foreground text-base">
                       {a.bank_name} <span className="text-muted font-normal text-sm">· {a.account_name}</span>
                     </p>
-                    <p className="font-mono text-xs font-bold text-accent mt-0.5 tracking-wider">
-                      {a.account_number}
-                    </p>
+                    {a.account_number ? (
+                      <p className="font-mono text-xs font-bold text-accent mt-0.5 tracking-wider">{a.account_number}</p>
+                    ) : (
+                      <p className="text-xs font-semibold text-rose-500 mt-0.5">
+                        Account number unreadable (saved under another server key). Re-enter it.
+                      </p>
+                    )}
                     <p className="text-[11px] text-muted mt-1">
                       {a.cinema ? `Assigned to ${a.cinema.name}` : "Available across all cinema venues"}
                       {a.swift ? ` · SWIFT: ${a.swift}` : ""}
@@ -347,6 +351,23 @@ export function BankAccounts() {
                   <Pill tone={a.is_active ? "good" : "neutral"}>
                     {a.is_active ? "Active" : "Inactive"}
                   </Pill>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={async () => {
+                      const value = window.prompt(`New account number for ${a.bank_name} · ${a.account_name}`, a.account_number ?? "");
+                      if (value === null || value.trim() === "") return;
+                      try {
+                        await adminApi.updateBankAccount(a.id, { account_number: value.trim() });
+                        setNonce((n) => n + 1);
+                      } catch (err) {
+                        window.alert(err instanceof ApiError ? (Object.values(err.errors)[0]?.[0] ?? err.message) : "Could not save.");
+                      }
+                    }}
+                    className="cursor-pointer shadow-sm text-xs font-semibold"
+                  >
+                    Edit number
+                  </Button>
                   <Button
                     size="sm"
                     variant="secondary"
