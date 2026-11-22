@@ -2,19 +2,19 @@
 
 import Link from "next/link";
 import { useRef } from "react";
-import { ChevronLeft, ChevronRight, Play } from "lucide-react";
+import { CalendarClock, ChevronLeft, ChevronRight, Play, Star } from "lucide-react";
 import type { Movie } from "@/types/movie";
 import type { ApiShowtime } from "@/lib/api/catalog";
 import { Art } from "@/components/ui/art";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { buttonClass } from "@/components/ui/button";
 import { TrailerButton } from "@/components/movies/trailer-modal";
-import { formatISODate, formatTime, zonedParts } from "@/lib/formatters";
+import { formatDuration, formatISODate, formatTime, zonedParts } from "@/lib/formatters";
 import { routes } from "@/lib/routes";
 
 export function TopMovies({ movies, next }: { movies: Movie[]; next: Record<string, ApiShowtime> }) {
   const ref = useRef<HTMLUListElement>(null);
-  const scroll = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth * 0.7, behavior: "smooth" });
+  const scroll = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth, behavior: "smooth" });
 
   return (
     <section className="section-y" aria-labelledby="top-movies-heading">
@@ -40,44 +40,76 @@ export function TopMovies({ movies, next }: { movies: Movie[]; next: Record<stri
           }
         />
       </div>
-      <ul ref={ref} className="scrollbar-none mt-10 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4 sm:px-6 lg:px-[max(2rem,calc((100vw-80rem)/2+2rem))]">
-        {movies.map((m) => {
-          const upcoming = next[m.slug];
-          const when = upcoming ? zonedParts(upcoming.starts_at, upcoming.cinema.timezone) : null;
-          return (
-            <li key={m.slug} className="w-[82%] shrink-0 snap-start sm:w-[46%] lg:w-[31%]">
-              <article className="group overflow-hidden rounded-card border border-line bg-elevated shadow-card">
-                <div className="relative aspect-[16/10] overflow-hidden">
-                  <div className="size-full transition duration-700 group-hover:scale-105">
-                    <Art art={m.art} seed={`${m.slug}-wide`} variant="backdrop" />
+      <div className="container-page">
+        <ul
+          ref={ref}
+          className="scrollbar-none -mx-1 mt-10 flex snap-x snap-mandatory gap-6 overflow-x-auto px-1 pb-6 pt-1"
+        >
+          {movies.map((m, i) => {
+            const upcoming = next[m.slug];
+            const when = upcoming ? zonedParts(upcoming.starts_at, upcoming.cinema.timezone) : null;
+            return (
+              <li key={m.slug} className="flex w-[85%] shrink-0 snap-start sm:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-3rem)/3)]">
+                <article className="group flex w-full flex-col overflow-hidden rounded-card border border-line bg-elevated shadow-card transition hover:-translate-y-1 hover:border-accent/60">
+                  <div className="relative aspect-[16/10] overflow-hidden">
+                    <div className="size-full transition duration-700 group-hover:scale-105">
+                      <Art art={m.art} seed={`${m.slug}-wide`} variant="backdrop" />
+                    </div>
+                    <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/30" />
+                    <span className="display absolute left-3 top-3 rounded-full bg-accent px-3 py-1 text-sm text-on-accent">#{i + 1}</span>
+                    {m.rating > 0 ? (
+                      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/70 px-2.5 py-1 text-sm font-semibold text-white backdrop-blur">
+                        <Star className="size-3.5 fill-accent text-accent" aria-hidden />
+                        {m.rating.toFixed(1)}
+                        <span className="sr-only"> out of 10</span>
+                      </span>
+                    ) : null}
+                    <TrailerButton
+                      movie={m}
+                      className="absolute inset-0 grid place-items-center"
+                      aria-label={`Play ${m.title} trailer`}
+                    >
+                      <span className="grid size-14 scale-90 place-items-center rounded-full bg-white/90 text-black opacity-90 transition group-hover:scale-100 group-hover:bg-accent group-hover:text-on-accent group-hover:opacity-100">
+                        <Play className="size-6 translate-x-0.5 fill-current" aria-hidden />
+                      </span>
+                    </TrailerButton>
                   </div>
-                  <TrailerButton movie={m} className="absolute inset-0 grid place-items-center bg-black/20 transition hover:bg-black/40" aria-label={`Play ${m.title} trailer`}>
-                    <span className="grid size-14 place-items-center rounded-full bg-white/90 text-black transition group-hover:bg-accent group-hover:text-on-accent">
-                      <Play className="size-6 translate-x-0.5 fill-current" aria-hidden />
-                    </span>
-                  </TrailerButton>
-                </div>
-                <div className="p-5">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-accent-text">{m.genres.join(" · ")}</p>
-                  <h3 className="display mt-1 text-2xl sm:text-3xl">
-                    <Link href={routes.movie(m.slug)} className="hover:text-accent-text">
-                      {m.title}
-                    </Link>
-                  </h3>
-                  {upcoming && when ? (
-                    <p className="mt-1 text-sm text-muted">
-                      Next: {formatISODate(when.date, { weekday: "short", day: "numeric", month: "short" })} {formatTime(when.time)} · {upcoming.cinema.name}
+                  <div className="flex flex-1 flex-col p-5">
+                    <p className="flex flex-wrap items-center gap-x-2 text-xs font-semibold uppercase tracking-wider text-accent-text">
+                      <span>{m.genres.join(" · ")}</span>
+                      {m.certificate ? <span className="rounded border border-line px-1.5 py-0.5 text-muted">{m.certificate}</span> : null}
+                      {m.durationMin > 0 ? <span className="text-muted">{formatDuration(m.durationMin)}</span> : null}
                     </p>
-                  ) : null}
-                  <Link href={routes.movie(m.slug, "#showtimes")} className={buttonClass("primary", "sm", "mt-4")}>
-                    Get Tickets
-                  </Link>
-                </div>
-              </article>
-            </li>
-          );
-        })}
-      </ul>
+                    <h3 className="display mt-2 line-clamp-2 text-2xl sm:text-3xl">
+                      <Link href={routes.movie(m.slug)} className="hover:text-accent-text">
+                        {m.title}
+                      </Link>
+                    </h3>
+                    <p className="mt-3 flex items-center gap-2 text-sm text-muted">
+                      <CalendarClock className="size-4 shrink-0 text-accent-text" aria-hidden />
+                      {upcoming && when ? (
+                        <span className="truncate">
+                          {formatISODate(when.date, { weekday: "short", day: "numeric", month: "short" })} · {formatTime(when.time)} · {upcoming.cinema.name}
+                        </span>
+                      ) : (
+                        <span>Showtimes announced soon</span>
+                      )}
+                    </p>
+                    <div className="mt-auto flex items-center gap-3 pt-5">
+                      <Link href={routes.movie(m.slug, "#showtimes")} className={buttonClass("primary", "sm")}>
+                        Get Tickets
+                      </Link>
+                      <Link href={routes.movie(m.slug)} className="text-sm font-semibold text-muted transition hover:text-accent-text">
+                        Details
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
   );
 }

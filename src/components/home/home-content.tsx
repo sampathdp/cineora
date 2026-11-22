@@ -55,8 +55,8 @@ export function HomeContent() {
   return (
     <>
       <Hero movies={hero} />
-      <NowPlaying movies={nowPlaying} genres={genres.map((g) => g.name)} />
       <StatsStripe stats={stats} />
+      <NowPlaying movies={nowPlaying} genres={genres.map((g) => g.name)} />
       <TrailerStrip movies={movies.slice(0, 8)} />
       <Intro />
       <TopMovies movies={[...nowPlaying].sort((a, b) => b.rating - a.rating).slice(0, 6)} next={next} />
