@@ -7,6 +7,8 @@ export interface Seat {
   number: number;
   /** Horizontal grid column. Equals `number` unless the room has walkway gaps, which shift columns but never renumber seats. */
   col: number;
+  /** Vertical grid line of the row. Jumps by more than one where the room has a horizontal walkway before this row. */
+  line?: number;
   category: SeatCategory;
   categoryName: string;
   /** Server-calculated price in whole won. Display only; the server prices the booking. */

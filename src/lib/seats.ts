@@ -10,6 +10,7 @@ export function groupSeats(apiSeats: ApiSeat[]): Seat[][] {
       row: s.row_label,
       number: s.number,
       col: s.x ?? s.number,
+      line: s.y ?? undefined,
       category: s.category_key,
       categoryName: s.category_name,
       price: s.price,

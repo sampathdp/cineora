@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, Box, Check } from "lucide-react";
 import type { Seat } from "@/types/booking";
@@ -130,9 +130,17 @@ export function SeatSelector({ showtime, rows, bookable, embedded = false }: Pro
             className="flex flex-col gap-1.5 transition-transform duration-700 ease-out sm:gap-2"
             style={{ transform: view3d ? "rotateX(14deg)" : "none", transformOrigin: "50% 0%" }}
           >
-            {rows.map((row) => (
+            {rows.map((row, ri) => {
+              // Horizontal walkway: the row's grid line jumps by more than one from the previous row.
+              const prevLine = ri > 0 ? rows[ri - 1][0].line : undefined;
+              const line = row[0].line;
+              const gap = prevLine != null && line != null ? Math.min(Math.max(line - prevLine - 1, 0), 4) : 0;
+              return (
+              <Fragment key={row[0].row}>
+              {Array.from({ length: gap }, (_, gi) => (
+                <div key={`walk-${gi}`} aria-hidden className="h-5 sm:h-6" />
+              ))}
               <div
-                key={row[0].row}
                 className="grid items-center gap-x-1 sm:gap-x-1.5"
                 style={{ gridTemplateColumns: `1.25rem repeat(${maxCol}, minmax(0, 1fr)) 1.25rem` }}
               >
@@ -167,7 +175,9 @@ export function SeatSelector({ showtime, rows, bookable, embedded = false }: Pro
                   {row[0].row}
                 </span>
               </div>
-            ))}
+              </Fragment>
+              );
+            })}
           </div>
         </div>
       </div>

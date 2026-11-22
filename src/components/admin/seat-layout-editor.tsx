@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Armchair, ArrowLeft, Ban, Box, MousePointerClick, Paintbrush, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { adm } from "@/lib/api/admin";
@@ -49,7 +49,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
   const [view3d, setView3d] = useState(true);
   const cats = useLoad(() => adm.get<{ key: string; name: string; default_price: number }[]>("/seat-categories").then((r) => r.data), "seat-cats");
   const current = useLoad(
-    () => adm.get<{ seats: { row_label: string; number: number; category_key: string; is_active: boolean; x: number | null }[] }>(`/rooms/${room.id}/seats`).then((r) => r.data.seats),
+    () => adm.get<{ seats: { row_label: string; number: number; category_key: string; is_active: boolean; x: number | null; y: number | null }[] }>(`/rooms/${room.id}/seats`).then((r) => r.data.seats),
     `layout-${room.id}`,
     { cache: false },
   );
@@ -61,6 +61,8 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
 
   // Walkways: key "Row-N" means a gap right before seat N (the clicked seat moves right). Seat numbers never change; only grid columns shift.
   const [aisles, setAisles] = useState<Record<string, number>>({});
+  // Horizontal walkways: row label -> number of empty lines right before that row. Stored as a jump in y.
+  const [rowGaps, setRowGaps] = useState<Record<string, number>>({});
 
   // Active tool: "select" (inspect/edit mode), "inactive" (disable brush), "aisle" (walkway brush), or category key (e.g. "premium")
   const [activeTool, setActiveTool] = useState<string>("select");
@@ -127,8 +129,23 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
       }
     }
 
+    // Horizontal walkways are stored as a jump in y between consecutive rows.
+    const rowY: Record<string, number> = {};
+    for (const s of current.data) {
+      if (s.y != null) rowY[s.row_label] = Math.min(rowY[s.row_label] ?? s.y, s.y);
+    }
+    const gaps: Record<string, number> = {};
+    let prevY: number | null = null;
+    for (const r of derived ?? []) {
+      const y = rowY[r.label];
+      if (y == null) continue;
+      if (prevY != null && y - prevY > 1) gaps[r.label] = Math.min(y - prevY - 1, 4);
+      prevY = y;
+    }
+
     setSeatOverrides(overrides);
     setAisles(found);
+    setRowGaps(gaps);
     setSyncedRoomId(room.id);
   }
 
@@ -153,6 +170,17 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
     });
   }
   const update = (next: RowSpec[]) => setRows(next);
+
+  /** Adds (+1) or removes (-1) one horizontal walkway line right before a row. Row letters never change. */
+  function changeRowGap(label: string, delta: 1 | -1) {
+    setRowGaps((prev) => {
+      const next = { ...prev };
+      const n = (next[label] ?? 0) + delta;
+      if (n > 0) next[label] = Math.min(n, 4);
+      else delete next[label];
+      return next;
+    });
+  }
 
   // Auditorium layout statistics
   const stats = useMemo(() => {
@@ -259,7 +287,9 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
 
   async function save() {
     const seats: { row_label: string; number: number; category_key: string; is_active: boolean; x: number; y: number }[] = [];
-    editable.forEach((r, y) => {
+    let y = -1;
+    editable.forEach((r, i) => {
+      y += 1 + (i > 0 ? (rowGaps[r.label] ?? 0) : 0);
       for (let i = 1; i <= r.count; i++) {
         const override = seatOverrides[`${r.label}-${i}`];
         // Disabled seats are sent as inactive (not omitted) so they persist and keep their number reserved.
@@ -298,6 +328,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
       setRows(null);
       setSeatOverrides({});
       setAisles({});
+      setRowGaps({});
       setSyncedRoomId(null);
       setSelectedSeat(null);
     }
@@ -425,7 +456,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
               <div className="rounded-xl border border-line/50 bg-surface/30 p-3 text-xs text-muted leading-relaxed">
                 <p className="font-semibold text-foreground mb-1">💡 Manual Per-Seat Customization:</p>
                 <p>
-                  Click any seat on the visual preview to customize its tier or disable it (wheelchair space or broken seat; its number stays reserved). To add a walkway between two seats without skipping any seat number, use the Walkway Brush or the &quot;Walkway before&quot; button.
+                  Click any seat on the visual preview to customize its tier or disable it (wheelchair space or broken seat; its number stays reserved). To add a walkway between two seats without skipping any seat number, use the Walkway Brush or the &quot;Walkway before&quot; button. With the Walkway Brush active, click the + strip between two rows to add a horizontal walkway (cross aisle).
                 </p>
               </div>
 
@@ -517,7 +548,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
                     <button
                       type="button"
                       onClick={() => setActiveTool("aisle")}
-                      title="Click a seat to add a walkway before it (the seat moves right). Click a blue walkway cell to remove it. Seat numbers stay unchanged."
+                      title="Click a seat to add a walkway before it (the seat moves right). Click the + strip between two rows to add a horizontal walkway. Click a blue walkway to remove it. Seat numbers and row letters stay unchanged."
                       className={cn(
                         "flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold transition cursor-pointer",
                         activeTool === "aisle"
@@ -531,19 +562,20 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {stats.custom > 0 || stats.disabled > 0 || Object.keys(aisles).length > 0 ? (
+                    {stats.custom > 0 || stats.disabled > 0 || Object.keys(aisles).length > 0 || Object.keys(rowGaps).length > 0 ? (
                       <button
                         type="button"
                         onClick={() => {
                           setSeatOverrides({});
                           setAisles({});
+                          setRowGaps({});
                           setSelectedSeat(null);
                         }}
                         title="Reset all individual seat overrides back to row defaults"
                         className="flex items-center gap-1.5 rounded-xl border border-line/60 bg-elevated/60 px-2.5 py-1.5 text-xs font-semibold text-muted hover:text-foreground hover:border-line transition cursor-pointer"
                       >
                         <RotateCcw className="size-3.5" />
-                        <span>Reset overrides ({stats.custom + stats.disabled + Object.keys(aisles).length})</span>
+                        <span>Reset overrides ({stats.custom + stats.disabled + Object.keys(aisles).length + Object.keys(rowGaps).length})</span>
                       </button>
                     ) : null}
 
@@ -696,7 +728,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
                       transformOrigin: "50% 0%",
                     }}
                   >
-                    {editable.map((r) => {
+                    {editable.map((r, ri) => {
                       // Map grid column -> seat number, and mark the empty column after a seat that has a walkway.
                       const seatAt = new Map<number, number>();
                       const walkAt = new Map<number, number>();
@@ -707,9 +739,34 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
                       }
                       const track = (c: number) => c + 1;
 
+                      const gapCount = ri > 0 ? (rowGaps[r.label] ?? 0) : 0;
+
                       return (
+                        <Fragment key={r.label}>
+                          {Array.from({ length: gapCount }, (_, gi) => (
+                            <button
+                              key={`row-walk-${gi}`}
+                              type="button"
+                              title={`Walkway before row ${r.label}: click to remove`}
+                              aria-label={`Remove walkway before row ${r.label}`}
+                              onClick={() => changeRowGap(r.label, -1)}
+                              className="mx-[1.5rem] flex h-7 cursor-pointer items-center justify-center rounded-md border border-dashed border-sky-400/50 bg-sky-400/10 text-[0.6rem] font-bold uppercase tracking-[0.3em] text-sky-500 outline-none hover:bg-sky-400/25 sm:h-8"
+                            >
+                              ⇅ walkway
+                            </button>
+                          ))}
+                          {activeTool === "aisle" && ri > 0 && gapCount < 4 ? (
+                            <button
+                              type="button"
+                              title={`Add a walkway between rows ${editable[ri - 1].label} and ${r.label}`}
+                              aria-label={`Add walkway before row ${r.label}`}
+                              onClick={() => changeRowGap(r.label, 1)}
+                              className="mx-[1.5rem] flex h-4 cursor-pointer items-center justify-center rounded-full border border-dashed border-sky-400/25 text-[0.55rem] font-bold leading-none text-sky-500/50 outline-none transition hover:border-sky-400/70 hover:bg-sky-400/15 hover:text-sky-500 focus-visible:border-sky-400/70 focus-visible:text-sky-500"
+                            >
+                              + walkway
+                            </button>
+                          ) : null}
                         <div
-                          key={r.label}
                           className="grid items-center gap-x-1 sm:gap-x-1.5"
                           style={{
                             gridTemplateColumns: `1.25rem repeat(${maxSeats}, minmax(0, 1fr)) 1.25rem`,
@@ -789,6 +846,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
                             {r.label}
                           </span>
                         </div>
+                        </Fragment>
                       );
                     })}
                   </div>

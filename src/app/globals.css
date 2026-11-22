@@ -192,3 +192,19 @@
 .on-dark .brand-on-light { display: none; }
 .dark .brand-on-dark,
 .on-dark .brand-on-dark { display: block; }
+
+/* ---------- Home stats stripe: seamless horizontal marquee (content rendered twice) ---------- */
+@keyframes stripe-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.stripe-marquee {
+  animation: stripe-marquee 30s linear infinite;
+}
+.stripe-marquee:hover {
+  animation-play-state: paused;
+}
