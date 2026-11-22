@@ -52,10 +52,11 @@ describe("adaptMovie", () => {
     expect(adaptMovie({ ...base, release_date: "2026-11-08" }, now).releaseOffsetDays).toBe(0);
   });
 
-  it("falls back to neutral artwork and uses the poster when there is no banner", () => {
+  it("falls back to neutral artwork and leaves the backdrop empty when there is no banner", () => {
     const m = adaptMovie(base, now);
     expect(m.art.image).toBe("http://api/storage/p.jpg");
-    expect(m.art.backdrop).toBe("http://api/storage/p.jpg");
+    // Wide slots then render the poster uncropped over a blurred copy instead of stretching it.
+    expect(m.art.backdrop).toBeUndefined();
     expect(m.art.motif).toBe("stars");
     const themed = adaptMovie({ ...base, art_theme: { from: "#111111", to: "#000000", accent: "#ff0000", motif: "moon" } }, now);
     expect(themed.art).toMatchObject({ from: "#111111", motif: "moon" });

@@ -37,6 +37,39 @@ export function Art({ art, seed, label, className, title, variant = "auto", prio
         seed === "about"));
 
   const imgSrc = !imgError && (isWide && art.backdrop ? art.backdrop : art.image || art.backdrop);
+  // Wide images span the viewport; posters sit in grids. Wrong sizes make the browser download a tiny file.
+  const sizes = isWide ? "100vw" : "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw";
+
+  // Wide slot but only a portrait poster: stretching it to cover crops most of it and blurs it.
+  // Instead fill the slot with a blurred, darkened copy and show the whole poster on the right.
+  if (imgSrc && isWide && !art.backdrop) {
+    return (
+      <div className={cn("relative block h-full w-full overflow-hidden bg-black", className)}>
+        <Image
+          src={imgSrc}
+          alt=""
+          aria-hidden
+          fill
+          sizes="50vw"
+          priority={priority}
+          className="scale-110 object-cover object-center opacity-60 blur-2xl"
+          onError={() => setImgError(true)}
+        />
+        <div className="absolute inset-y-0 right-[6%] hidden w-full items-center justify-end md:flex">
+          <div className="relative aspect-[2/3] h-[72%] max-h-[760px] overflow-hidden rounded-2xl shadow-[0_30px_80px_rgba(0,0,0,0.6)] ring-1 ring-white/10">
+            <Image
+              src={imgSrc}
+              alt={label || title || seed}
+              fill
+              sizes="(max-width: 1200px) 40vw, 520px"
+              priority={priority}
+              className="object-cover"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (imgSrc) {
     const hasEmbeddedPosterTitle =
@@ -52,7 +85,7 @@ export function Art({ art, seed, label, className, title, variant = "auto", prio
           src={imgSrc}
           alt={label || title || seed}
           fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          sizes={sizes}
           priority={priority}
           className="object-cover object-center transition-transform duration-700"
           onError={() => setImgError(true)}

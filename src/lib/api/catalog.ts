@@ -105,7 +105,7 @@ export function adaptMovie(m: ApiMovie, now: number = Date.now()): Movie {
     writers: crew.filter((c) => c.job === "writer").map((c) => c.name),
     cast: (m.cast ?? []).map((c) => ({ name: c.name, role: c.role ?? "" })),
     trailerUrl: m.trailer_url ?? undefined,
-    art: { ...(m.art_theme ?? FALLBACK_THEME), image: m.poster_url ?? undefined, backdrop: m.banner_url ?? m.poster_url ?? undefined },
+    art: { ...(m.art_theme ?? FALLBACK_THEME), image: m.poster_url ?? undefined, backdrop: m.banner_url ?? undefined },
     featured: m.is_featured,
   };
 }
