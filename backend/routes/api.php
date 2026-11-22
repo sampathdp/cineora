@@ -138,6 +138,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/cinemas', [CinemaAdminController::class, 'store']);
         Route::get('/cinemas/{cinema}', [CinemaAdminController::class, 'show']);
         Route::patch('/cinemas/{cinema}', [CinemaAdminController::class, 'update']);
+        Route::delete('/cinemas/{cinema}', [CinemaAdminController::class, 'destroy']);
         Route::post('/cinemas/{cinema}/images', [CinemaAdminController::class, 'addImage']);
         Route::delete('/cinemas/{cinema}/images/{image}', [CinemaAdminController::class, 'removeImage']);
         Route::get('/cinemas/{cinema}/rooms', [CinemaAdminController::class, 'rooms']);

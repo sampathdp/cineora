@@ -194,6 +194,31 @@ export function CinemasAdmin() {
                         {c.is_active ? "Close" : "Open"}
                       </Button>
                     )}
+
+                    {can("cinemas.manage") && can("settings.manage") && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        aria-label={`Delete ${c.name}`}
+                        title="Delete cinema"
+                        onClick={async () => {
+                          if (
+                            (await confirmDialog({
+                              title: `Delete cinema "${c.name}"?`,
+                              message: `All ${c.rooms.length} halls, seat layouts, showtimes, photos and settings of this cinema are permanently deleted. Not allowed once it has bookings (close it instead). This cannot be undone.`,
+                              confirmLabel: "Delete cinema",
+                              danger: true,
+                            })) &&
+                            (await act.run(() => adm.del(`/cinemas/${c.id}`), "Cinema deleted."))
+                          ) {
+                            list.reload();
+                          }
+                        }}
+                        className="h-8 px-2 text-xs text-muted hover:text-red-500 cursor-pointer"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    )}
                   </div>
                 ),
               },
@@ -620,7 +645,7 @@ function Rooms({ cinema, onChanged }: { cinema: Cinema; onChanged: () => void })
                     aria-label={`Delete ${r.name}`}
                     onClick={async () => {
                       if (
-                        (await confirmDialog({ title: `Delete hall "${r.name}"?`, message: "Its seat layout is deleted too. This cannot be undone.", confirmLabel: "Delete hall", danger: true })) &&
+                        (await confirmDialog({ title: `Delete hall "${r.name}"?`, message: "Its seat layout and all its showtimes are deleted too. Not allowed once it has bookings (deactivate it instead). This cannot be undone.", confirmLabel: "Delete hall", danger: true })) &&
                         (await act.run(() => adm.del(`/rooms/${r.id}`), "Hall deleted."))
                       ) {
                         onChanged();

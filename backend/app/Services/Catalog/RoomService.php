@@ -2,6 +2,7 @@
 
 namespace App\Services\Catalog;
 
+use App\Exceptions\DomainConflictException;
 use App\Models\Cinema;
 use App\Models\ScreeningRoom;
 use App\Models\Seat;
@@ -33,16 +34,31 @@ class RoomService
         return $room;
     }
 
+    /**
+     * Permanently deletes a room with its seats and every showtime (prices + seat inventory) scheduled in it.
+     * Refused once any booking references one of its showtimes: bookings, payments and tickets keep that history.
+     */
     public function delete(ScreeningRoom $room, User $actor): void
     {
-        if ($room->showtimes()->exists()) {
-            throw ValidationException::withMessages(['room' => ['This room has showtimes. Deactivate it instead of deleting.']]);
-        }
         DB::transaction(function () use ($room, $actor) {
-            $room->seats()->delete();
-            $room->delete();
+            ScreeningRoom::whereKey($room->id)->lockForUpdate()->first();
+            if (DB::table('bookings')->whereIn('showtime_id', Showtime::where('room_id', $room->id)->select('id'))->exists()) {
+                throw new DomainConflictException('This hall has bookings. Deactivate it instead of deleting.', 'has_bookings');
+            }
+            $this->purge($room);
             $this->audit->log('room.deleted', $actor, 'room', $room->public_id);
         });
+    }
+
+    /** Removes a room's showtimes, seats and the room itself. Caller must hold a transaction and have checked bookings. */
+    public function purge(ScreeningRoom $room): void
+    {
+        $showIds = Showtime::where('room_id', $room->id)->pluck('id');
+        DB::table('showtime_seats')->whereIn('showtime_id', $showIds)->delete();
+        DB::table('showtime_seat_prices')->whereIn('showtime_id', $showIds)->delete();
+        Showtime::whereIn('id', $showIds)->delete();
+        $room->seats()->delete();
+        $room->forceDelete(); // hard delete: frees the hall name and leaves no orphan row behind
     }
 
     /**

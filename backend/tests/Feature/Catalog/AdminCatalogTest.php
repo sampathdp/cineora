@@ -5,9 +5,11 @@ namespace Tests\Feature\Catalog;
 use App\Enums\MovieStatus;
 use App\Enums\Role;
 use App\Models\AuditLog;
+use App\Models\Booking;
 use App\Models\Cinema;
 use App\Models\Movie;
 use App\Models\ScreeningRoom;
+use App\Models\Seat;
 use App\Models\Showtime;
 
 class AdminCatalogTest extends CatalogTestCase
@@ -160,15 +162,39 @@ class AdminCatalogTest extends CatalogTestCase
         $this->postJson('/api/v1/admin/cinemas', ['name' => 'X', 'address' => 'Y', 'timezone' => 'Mars/Base'])->assertStatus(422);
     }
 
-    public function test_room_with_showtimes_cannot_be_deleted(): void
+    public function test_room_delete_removes_unsold_showtimes_but_is_refused_with_bookings(): void
     {
         $show = Showtime::factory()->create();
         $room = ScreeningRoom::find($show->room_id);
+        Seat::factory()->create(['room_id' => $room->id]);
 
-        $this->as($this->staff(Role::SuperAdmin))->deleteJson("/api/v1/admin/rooms/{$room->public_id}")->assertStatus(422);
-        $this->assertNotSoftDeleted($room);
+        $this->as($this->staff(Role::SuperAdmin))->deleteJson("/api/v1/admin/rooms/{$room->public_id}")->assertOk();
+        $this->assertModelMissing($room);
+        $this->assertModelMissing($show);
 
-        $empty = ScreeningRoom::factory()->create();
-        $this->deleteJson("/api/v1/admin/rooms/{$empty->public_id}")->assertOk();
+        $sold = Showtime::factory()->create();
+        Booking::factory()->create(['showtime_id' => $sold->id, 'cinema_id' => $sold->cinema_id]);
+        $this->deleteJson('/api/v1/admin/rooms/'.ScreeningRoom::find($sold->room_id)->public_id)->assertStatus(409)->assertJson(['code' => 'has_bookings']);
+        $this->assertModelExists($sold);
+    }
+
+    public function test_only_super_admin_deletes_a_cinema_and_only_without_bookings(): void
+    {
+        $show = Showtime::factory()->create();
+        $cinema = Cinema::find($show->cinema_id);
+
+        $manager = $this->staff(Role::CinemaManager);
+        $manager->cinemas()->attach($cinema->id);
+        $this->as($manager)->deleteJson("/api/v1/admin/cinemas/{$cinema->public_id}")->assertForbidden();
+
+        $this->as($this->staff(Role::SuperAdmin))->deleteJson("/api/v1/admin/cinemas/{$cinema->public_id}")->assertOk();
+        $this->assertModelMissing($cinema);
+        $this->assertModelMissing($show);
+        $this->assertDatabaseMissing('screening_rooms', ['cinema_id' => $cinema->id]);
+
+        $sold = Showtime::factory()->create();
+        Booking::factory()->create(['showtime_id' => $sold->id, 'cinema_id' => $sold->cinema_id]);
+        $this->deleteJson('/api/v1/admin/cinemas/'.Cinema::find($sold->cinema_id)->public_id)->assertStatus(409)->assertJson(['code' => 'has_bookings']);
+        $this->assertDatabaseHas('cinemas', ['id' => $sold->cinema_id]);
     }
 }

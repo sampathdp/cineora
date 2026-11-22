@@ -2,6 +2,8 @@
 
 namespace App\Services\Catalog;
 
+use App\Exceptions\DomainConflictException;
+use App\Models\BankAccount;
 use App\Models\Cinema;
 use App\Models\CinemaImage;
 use App\Models\User;
@@ -17,7 +19,41 @@ class CinemaService
 
     private const SCALARS = ['name', 'area', 'address', 'phone', 'email', 'description', 'timezone', 'is_active', 'art_theme'];
 
-    public function __construct(private readonly AuditLogger $audit, private readonly SecureUploadService $uploads) {}
+    public function __construct(private readonly AuditLogger $audit, private readonly SecureUploadService $uploads, private readonly RoomService $rooms) {}
+
+    /**
+     * Permanently deletes a cinema with its halls, seats, showtimes, images, facilities, seat tiers, staff
+     * assignments and cinema-specific bank accounts. Refused once any booking exists for the cinema.
+     */
+    public function delete(Cinema $cinema, User $actor): void
+    {
+        $paths = DB::transaction(function () use ($cinema, $actor) {
+            Cinema::whereKey($cinema->id)->lockForUpdate()->first();
+            if (DB::table('bookings')->where('cinema_id', $cinema->id)->exists()) {
+                throw new DomainConflictException('This cinema has bookings. Deactivate it instead of deleting.', 'has_bookings');
+            }
+
+            foreach ($cinema->rooms()->withTrashed()->get() as $room) {
+                $this->rooms->purge($room);
+            }
+            if (DB::table('payments')->whereIn('bank_account_id', BankAccount::where('cinema_id', $cinema->id)->select('id'))->exists()) {
+                throw new DomainConflictException('A bank account of this cinema has payments. Deactivate the cinema instead.', 'has_payments');
+            }
+            BankAccount::where('cinema_id', $cinema->id)->delete();
+            // Scan logs keep their history without the cinema link.
+            DB::table('ticket_validation_events')->where('cinema_id', $cinema->id)->update(['cinema_id' => null]);
+
+            $paths = $cinema->images()->pluck('path')->all();
+            $cinema->forceDelete(); // facilities, images, seat tiers, staff assignments and promo links cascade
+            $this->audit->log('cinema.deleted', $actor, 'cinema', $cinema->public_id, ['name' => $cinema->name]);
+
+            return $paths;
+        });
+
+        foreach ($paths as $path) {
+            $this->uploads->delete($path, self::IMAGE_DIRS);
+        }
+    }
 
     public function save(array $data, User $actor, ?Cinema $cinema = null): Cinema
     {

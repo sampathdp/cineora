@@ -60,6 +60,14 @@ class CinemaAdminController extends Controller
         return ApiResponse::success((new AdminCinemaResource($this->cinemas->save($data, $request->user(), $cinema)))->resolve(), 'Cinema updated.');
     }
 
+    public function destroy(Request $request, Cinema $cinema): JsonResponse
+    {
+        Gate::authorize('delete', $cinema);
+        $this->cinemas->delete($cinema, $request->user());
+
+        return ApiResponse::success(null, 'Cinema deleted.');
+    }
+
     public function addImage(ImageUploadRequest $request, Cinema $cinema): JsonResponse
     {
         Gate::authorize('update', $cinema);
