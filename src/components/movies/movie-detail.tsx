@@ -96,8 +96,14 @@ export function MovieDetail() {
               <ShowtimeBrowser slug={movie.slug} />
             ) : (
               <p className="rounded-card border border-dashed border-line p-8 text-center text-muted">
-                Tickets are not on sale yet for this title. It opens{" "}
-                {formatOffsetDate(movie.releaseOffsetDays, { day: "numeric", month: "long" })}.
+                {movie.releaseOffsetDays > 0 ? (
+                  <>
+                    Tickets are not on sale yet for this title. It opens{" "}
+                    {formatOffsetDate(movie.releaseOffsetDays, { day: "numeric", month: "long" })}.
+                  </>
+                ) : (
+                  "Tickets are not on sale yet for this title. Showtimes will be announced soon."
+                )}
               </p>
             )}
           </div>

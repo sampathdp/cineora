@@ -474,7 +474,6 @@ function MovieEditor({
       subtitle="Catalog metadata, genres, cast, crew, artwork, and screening distribution"
     >
       <form onSubmit={save} noValidate className="space-y-6" aria-label="Movie form">
-        <Feedback error={act.error} note={act.note} />
 
         {/* General Details Section */}
         <div className="rounded-2xl border border-line/60 bg-surface/40 p-5 space-y-4">
@@ -663,8 +662,54 @@ function MovieEditor({
         {checkError && <p className="text-sm text-rose-500">{checkError}</p>}
 
         {/* Form Action Controls */}
+        {/* Poster & Banner Upload Section (Available after creating draft) */}
+        {movie ? (
+          <div className="rounded-2xl border border-line/70 bg-surface/50 p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/40 pb-3">
+              <div className="flex items-center gap-2">
+                <Pill tone={tone[movie.status]}>{movie.status}</Pill>
+                <span className="text-xs text-muted">Screening Life Cycle</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {can("movies.publish") && movie.status !== "published" && (
+                  <Button size="sm" onClick={transition("publish", "Published.")} disabled={act.busy}>
+                    Publish Movie
+                  </Button>
+                )}
+                {can("movies.publish") && movie.status === "published" && (
+                  <Button size="sm" variant="secondary" onClick={transition("unpublish", "Moved back to draft.")} disabled={act.busy}>
+                    Unpublish
+                  </Button>
+                )}
+                {can("movies.publish") && movie.status !== "archived" && (
+                  <Button size="sm" variant="secondary" onClick={transition("archive", "Archived.")} disabled={act.busy}>
+                    Archive
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {canEdit && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ImageSlot label="Poster Artwork (Portrait)" url={movie.poster_url} onPick={upload("poster")} />
+                <ImageSlot label="Banner Artwork (Landscape)" url={movie.banner_url} onPick={upload("banner")} />
+              </div>
+            )}
+            <p className="text-[11px] text-muted">
+              Note: A title requires at least a verified poster artwork and synopsis before it can be published live.
+            </p>
+          </div>
+        ) : null}
+
         {/* Sticky so Save / Close / Delete stay reachable at the bottom of the screen on long forms */}
         <div className="sticky bottom-0 z-10 -mx-5 -mb-5 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border-t border-line/60 bg-elevated/95 px-5 py-4 backdrop-blur-md sm:-mx-6 sm:-mb-6 sm:px-6">
+          {/* Result of Save / Publish / uploads, kept next to the buttons so it is always visible */}
+          {act.error || act.note ? (
+            <div className="w-full">
+              <Feedback error={act.error} note={act.note} />
+            </div>
+          ) : null}
           <div className="flex items-center gap-2.5">
             {!movie && canEdit && can("movies.publish") && (
               <Button type="button" onClick={(e) => save(e, true)} disabled={act.busy} className="shadow-sm">
@@ -702,45 +747,6 @@ function MovieEditor({
         </div>
       </form>
 
-      {/* Poster & Banner Upload Section (Available after creating draft) */}
-      {movie ? (
-        <div className="mt-8 rounded-2xl border border-line/70 bg-surface/50 p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/40 pb-3">
-            <div className="flex items-center gap-2">
-              <Pill tone={tone[movie.status]}>{movie.status}</Pill>
-              <span className="text-xs text-muted">Screening Life Cycle</span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {can("movies.publish") && movie.status !== "published" && (
-                <Button size="sm" onClick={transition("publish", "Published.")} disabled={act.busy}>
-                  Publish Movie
-                </Button>
-              )}
-              {can("movies.publish") && movie.status === "published" && (
-                <Button size="sm" variant="secondary" onClick={transition("unpublish", "Moved back to draft.")} disabled={act.busy}>
-                  Unpublish
-                </Button>
-              )}
-              {can("movies.publish") && movie.status !== "archived" && (
-                <Button size="sm" variant="secondary" onClick={transition("archive", "Archived.")} disabled={act.busy}>
-                  Archive
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {canEdit && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <ImageSlot label="Poster Artwork (Portrait)" url={movie.poster_url} onPick={upload("poster")} />
-              <ImageSlot label="Banner Artwork (Landscape)" url={movie.banner_url} onPick={upload("banner")} />
-            </div>
-          )}
-          <p className="text-[11px] text-muted">
-            Note: A title requires at least a verified poster artwork and synopsis before it can be published live.
-          </p>
-        </div>
-      ) : null}
     </Shell>
   );
 }
