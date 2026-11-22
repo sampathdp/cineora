@@ -41,7 +41,7 @@ return [
         // Minutes from booking creation until a bank transfer must be submitted.
         'payment_deadline_minutes' => (int) env('BOOKING_PAYMENT_DEADLINE_MINUTES', 120),
         'max_seats_per_booking' => (int) env('BOOKING_MAX_SEATS', 8),
-        'max_active_unpaid_bookings' => (int) env('BOOKING_MAX_UNPAID', 3),
+        'max_active_unpaid_bookings' => (int) env('BOOKING_MAX_UNPAID', 1),
         // Whole won per seat; 0 disables the service fee.
         'service_fee_per_seat' => (int) env('BOOKING_SERVICE_FEE_PER_SEAT', 0),
     ],

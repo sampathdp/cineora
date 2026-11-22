@@ -14,17 +14,98 @@ on:
     branches:
       - main
       - master
+  pull_request:
   workflow_dispatch:
 
-# Never let two deploys upload over each other.
-concurrency:
-  group: deploy
-  cancel-in-progress: false
-
 jobs:
+  # Nothing reaches the server unless every check below passes.
+  test:
+    name: ✅ Lint, test and audit
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: cineora_test
+          MYSQL_USER: cineora
+          MYSQL_PASSWORD: cineora
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: 🐘 Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo_mysql, bcmath, intl, gd, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: 📦 Install dependencies
+        run: |
+          npm ci
+          (cd backend && composer install --prefer-dist --no-interaction --no-progress)
+
+      - name: 🧹 Lint and typecheck
+        run: |
+          npm run lint
+          npx tsc --noEmit
+
+      - name: 🧪 Frontend unit tests
+        run: npm test
+
+      - name: 🛡️ Dependency audits
+        run: |
+          npm audit --omit=dev --audit-level=high
+          (cd backend && composer audit --no-dev)
+
+      - name: 🗄️ Prepare test databases
+        run: |
+          mysql -h 127.0.0.1 -uroot -proot -e "CREATE DATABASE IF NOT EXISTS cineora_e2e; GRANT ALL ON cineora_test.* TO 'cineora'@'%'; GRANT ALL ON cineora_e2e.* TO 'cineora'@'%'; FLUSH PRIVILEGES;"
+          cd backend
+          cp .env.example .env
+          sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=cineora/' .env
+          php artisan key:generate --force
+
+      - name: 🐘 Backend tests (MySQL)
+        working-directory: backend
+        run: php artisan test
+
+      - name: 🎭 Browser tests (Playwright)
+        run: |
+          npx playwright install --with-deps chrome
+          npm run e2e
+
+      - name: 📎 Keep Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
+
   deploy:
     name: 🎉 Build & Deploy site + API
+    needs: test
+    # Pull requests are tested only; they never deploy.
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # Never let two deploys upload over each other.
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
     steps:
       - name: 🚚 Get latest code
         uses: actions/checkout@v4
@@ -92,6 +173,13 @@ jobs:
               Header always set X-Frame-Options "DENY"
               Header always set Referrer-Policy "strict-origin-when-cross-origin"
               Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+              # Site pages only: the API sets its own stricter CSP (and a sandbox on proof files), which must win.
+              # The static export inlines its own bootstrap scripts (no server to add nonces), so scripts need
+              # 'unsafe-inline'; everything else is locked to this origin. blob: = proof previews, data: = QR codes.
+              <If "%{REQUEST_URI} !~ m#^/(api|sanctum|storage)/#">
+                  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self' blob: https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+              </If>
+              Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
               # Only the staff area may ask for the camera (door scanner, paired phone scanner). It must cover every
               # /admin/ page, not just the scanner URLs: the policy is fixed when the document loads, and admin pages
               # switch without a reload, so opening the scanner from the dashboard keeps the dashboard's policy.

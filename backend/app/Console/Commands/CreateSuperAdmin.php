@@ -26,14 +26,14 @@ class CreateSuperAdmin extends Command
         $name = $this->option('name') ?: text('Name', required: true);
         $email = $this->option('email') ?: text('Email', required: true);
 
-        $pw = password('Password (min 8 chars, mixed case, numbers, symbols)', required: true);
+        $pw = password('Password (min 12 chars, mixed case, numbers, symbols)', required: true);
         if ($pw !== password('Confirm password', required: true)) {
             $this->error('Passwords do not match.');
 
             return self::FAILURE;
         }
 
-        $passwordRule = Password::min(8)->mixedCase()->numbers()->symbols();
+        $passwordRule = Password::min(12)->mixedCase()->numbers()->symbols();
         if (app()->isProduction()) {
             $passwordRule->uncompromised();
         }

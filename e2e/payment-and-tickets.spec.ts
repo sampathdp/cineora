@@ -30,7 +30,7 @@ test.describe.serial("pay by bank transfer, get verified, receive tickets, get s
     await login(page, "e2e.three@example.test");
     await page.goto("/movies/view/?slug=ashes-of-the-lantern");
     await page.getByRole("tab").first().click();
-    await page.locator("ul button[aria-pressed]").first().click();
+    await page.locator("button[aria-pressed]").filter({ hasText: /seats/ }).first().click(); // showtime card
     await expect(page.getByRole("group", { name: "Seats" })).toBeVisible();
     await seat(page, "F1").click();
     await seat(page, "F2").click();
@@ -64,18 +64,18 @@ test.describe.serial("pay by bank transfer, get verified, receive tickets, get s
     // Role-aware navigation: a verifier sees payments but not the scanner.
     const nav = page.getByRole("navigation", { name: "Admin" });
     await expect(nav.getByRole("link", { name: "Payments" })).toBeVisible();
-    await expect(nav.getByRole("link", { name: "Scan tickets" })).toHaveCount(0);
-    await expect(nav.getByRole("link", { name: "Bank accounts" })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Ticket Scanner" })).toHaveCount(0);
+    await expect(nav.getByRole("link", { name: "Bank Accounts" })).toHaveCount(0);
 
     await nav.getByRole("link", { name: "Payments" }).click();
-    await page.getByRole("button", { name: new RegExp(story.reference!) }).click();
+    await page.getByRole("row", { name: new RegExp(story.reference!) }).getByRole("button", { name: "Review" }).click();
     await expect(page.getByRole("heading", { name: story.reference! })).toBeVisible();
-    await expect(page.getByAltText("Customer's transfer receipt")).toBeVisible(); // protected file shown through the API
+    await expect(page.getByAltText("Customer's transfer slip")).toBeVisible(); // protected file shown through the API
     await expect(page.getByText("E2E Three")).toHaveCount(0); // a verifier is not shown the customer's identity
 
-    page.once("dialog", (d) => d.accept());
-    await page.getByRole("button", { name: "Verify payment" }).click();
-    await expect(page.getByText("Payment verified. Tickets issued.")).toBeVisible();
+    await page.getByRole("button", { name: "Verify & issue tickets" }).click();
+    await page.getByRole("dialog", { name: "Verify this transfer?" }).getByRole("button", { name: "Verify & issue tickets" }).click();
+    await expect(page.getByText(/payment verified\. Tickets issued\./)).toBeVisible();
     await ctx.close();
   });
 
@@ -108,37 +108,37 @@ test.describe.serial("pay by bank transfer, get verified, receive tickets, get s
 
     const nav = page.getByRole("navigation", { name: "Admin" });
     await expect(nav.getByRole("link", { name: "Payments" })).toHaveCount(0);
-    await nav.getByRole("link", { name: "Scan tickets" }).click();
+    await nav.getByRole("link", { name: "Ticket Scanner" }).click();
 
-    const entry = page.getByLabel("Ticket reference (manual entry)");
-    const status = page.getByRole("status").filter({ hasText: /VALID|USED|NOT VALID|WRONG|Waiting/i });
+    const entry = page.getByLabel("Ticket Reference / QR Payload (Manual)");
+    const status = page.getByRole("status").filter({ hasText: /VALID|USED|INVALID|WRONG|Waiting/i });
 
     // Scan the QR content of the first ticket.
     await entry.fill(story.qrs[0]);
-    await page.getByRole("button", { name: "Check" }).click();
+    await page.getByRole("button", { name: "Validate Code" }).click();
     await expect(status).toContainText("VALID: ADMIT ONE");
     await expect(status).not.toContainText("E2E Three"); // no customer data at the door
 
     // The same QR again, and the same ticket by its printed reference.
     await entry.fill(story.qrs[0]);
-    await page.getByRole("button", { name: "Check" }).click();
+    await page.getByRole("button", { name: "Validate Code" }).click();
     await expect(status).toContainText("ALREADY USED");
     await entry.fill(story.ticketRefs.find((_, i) => i === 0)!);
-    await page.getByRole("button", { name: "Check" }).click();
+    await page.getByRole("button", { name: "Validate Code" }).click();
     await expect(status).toContainText("ALREADY USED");
 
     // The second seat is a separate ticket and is admitted by reference; garbage is simply "not valid".
     await entry.fill(story.ticketRefs[1]);
-    await page.getByRole("button", { name: "Check" }).click();
+    await page.getByRole("button", { name: "Validate Code" }).click();
     await expect(status).toContainText("VALID: ADMIT ONE");
     await entry.fill("CINEORA1:definitely-not-a-real-ticket-token-00000000");
-    await page.getByRole("button", { name: "Check" }).click();
-    await expect(status).toContainText("NOT VALID");
+    await page.getByRole("button", { name: "Validate Code" }).click();
+    await expect(status).toContainText("INVALID TICKET CODE");
 
     await expect(page.getByLabel("Recent scans").getByText("valid", { exact: true })).toHaveCount(2);
 
     // The camera is never requested until the checker asks for it.
-    await expect(page.getByRole("button", { name: "Start camera" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Activate Camera Scanner" })).toBeVisible();
     await ctx.close();
   });
 

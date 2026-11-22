@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Armchair, ArrowLeft, Ban, Box, MousePointerClick, Paintbrush, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { adm } from "@/lib/api/admin";
@@ -78,60 +78,59 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
     );
   }, [current.data]);
 
-  // Synchronise existing seat overrides from backend when room data loads
-  useEffect(() => {
-    if (current.data && !current.refreshing && syncedRoomId !== room.id) {
-      const overrides: Record<string, string> = {};
-      const rowTiers: Record<string, Record<string, number>> = {};
+  // Synchronise existing seat overrides from backend when room data loads. Done during render (guarded by
+  // syncedRoomId so it runs once per room) instead of in an effect, which would render twice.
+  if (current.data && !current.refreshing && syncedRoomId !== room.id) {
+    const overrides: Record<string, string> = {};
+    const rowTiers: Record<string, Record<string, number>> = {};
 
-      for (const s of current.data) {
-        if (!s.is_active) {
-          overrides[`${s.row_label}-${s.number}`] = "inactive";
-          continue;
-        }
-        rowTiers[s.row_label] ??= {};
-        rowTiers[s.row_label][s.category_key] = (rowTiers[s.row_label][s.category_key] ?? 0) + 1;
+    for (const s of current.data) {
+      if (!s.is_active) {
+        overrides[`${s.row_label}-${s.number}`] = "inactive";
+        continue;
       }
-
-      // Detect seats whose category deviates from the row's dominant tier
-      for (const s of current.data) {
-        if (!s.is_active) continue;
-        const counts = rowTiers[s.row_label] ?? {};
-        let dominant = s.category_key;
-        let max = 0;
-        for (const [k, v] of Object.entries(counts)) {
-          if (v > max) {
-            max = v;
-            dominant = k;
-          }
-        }
-        if (s.category_key !== dominant) {
-          overrides[`${s.row_label}-${s.number}`] = s.category_key;
-        }
-      }
-
-      // Walkways are stored as a jump in x between neighbouring active seats that is larger than their number jump.
-      const found: Record<string, number> = {};
-      const byRow: Record<string, { number: number; x: number }[]> = {};
-      for (const s of current.data) {
-        if (!s.is_active || s.x == null) continue;
-        (byRow[s.row_label] ??= []).push({ number: s.number, x: s.x });
-      }
-      for (const [label, list] of Object.entries(byRow)) {
-        list.sort((a, b) => a.number - b.number);
-        let prevOffset = 0;
-        for (const seat of list) {
-          const offset = seat.x - seat.number;
-          if (offset > prevOffset) found[`${label}-${seat.number}`] = offset - prevOffset;
-          prevOffset = offset;
-        }
-      }
-
-      setSeatOverrides(overrides);
-      setAisles(found);
-      setSyncedRoomId(room.id);
+      rowTiers[s.row_label] ??= {};
+      rowTiers[s.row_label][s.category_key] = (rowTiers[s.row_label][s.category_key] ?? 0) + 1;
     }
-  }, [current.data, room.id, syncedRoomId]);
+
+    // Detect seats whose category deviates from the row's dominant tier
+    for (const s of current.data) {
+      if (!s.is_active) continue;
+      const counts = rowTiers[s.row_label] ?? {};
+      let dominant = s.category_key;
+      let max = 0;
+      for (const [k, v] of Object.entries(counts)) {
+        if (v > max) {
+          max = v;
+          dominant = k;
+        }
+      }
+      if (s.category_key !== dominant) {
+        overrides[`${s.row_label}-${s.number}`] = s.category_key;
+      }
+    }
+
+    // Walkways are stored as a jump in x between neighbouring active seats that is larger than their number jump.
+    const found: Record<string, number> = {};
+    const byRow: Record<string, { number: number; x: number }[]> = {};
+    for (const s of current.data) {
+      if (!s.is_active || s.x == null) continue;
+      (byRow[s.row_label] ??= []).push({ number: s.number, x: s.x });
+    }
+    for (const [label, list] of Object.entries(byRow)) {
+      list.sort((a, b) => a.number - b.number);
+      let prevOffset = 0;
+      for (const seat of list) {
+        const offset = seat.x - seat.number;
+        if (offset > prevOffset) found[`${label}-${seat.number}`] = offset - prevOffset;
+        prevOffset = offset;
+      }
+    }
+
+    setSeatOverrides(overrides);
+    setAisles(found);
+    setSyncedRoomId(room.id);
+  }
 
   const editable = rows ?? derived ?? [];
   /** Grid column of seat `n`: its number plus one per walkway placed at or before it. */
@@ -259,26 +258,24 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
   }
 
   async function save() {
-    const seats: { row_label: string; number: number; category_key: string; x: number; y: number }[] = [];
+    const seats: { row_label: string; number: number; category_key: string; is_active: boolean; x: number; y: number }[] = [];
     editable.forEach((r, y) => {
       for (let i = 1; i <= r.count; i++) {
-        const key = `${r.label}-${i}`;
-        const override = seatOverrides[key];
-        if (override === "inactive") {
-          continue; // Inactive / gap seats are omitted and handled by the backend
-        }
-        const category_key = override || r.category;
+        const override = seatOverrides[`${r.label}-${i}`];
+        // Disabled seats are sent as inactive (not omitted) so they persist and keep their number reserved.
+        const inactive = override === "inactive";
         seats.push({
           row_label: r.label,
           number: i,
-          category_key,
+          category_key: inactive ? r.category : override || r.category,
+          is_active: !inactive,
           x: colOf(r.label, i),
           y,
         });
       }
     });
 
-    if (seats.length === 0) {
+    if (!seats.some((s) => s.is_active)) {
       act.run(async () => {}, "Auditorium must have at least 1 active seat.");
       return;
     }

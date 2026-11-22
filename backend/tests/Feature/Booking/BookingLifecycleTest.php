@@ -146,7 +146,7 @@ class BookingLifecycleTest extends BookingTestCase
         $b = $this->make($this->customer(), ['A1', 'B1'], ['promo_code' => 'EXP']);
         $this->assertSame(1, $promo->fresh()->used_count);
 
-        Carbon::setTestNow(now()->addMinutes(16));
+        Carbon::setTestNow(now()->addMinutes((int) config('cineora.booking.seat_hold_minutes') + 1));
         $this->assertSame(1, app(BookingExpiryService::class)->expireDue());
 
         $this->assertSame(BookingStatus::EXPIRED, $b->fresh()->status);

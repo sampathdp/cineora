@@ -18,6 +18,7 @@ class SeatLayoutRequest extends FormRequest
             'seats.*.row_label' => ['required', 'string', 'regex:/^[A-Za-z]{1,2}$/'],
             'seats.*.number' => ['required', 'integer', 'between:1,99'],
             'seats.*.category_key' => ['required', 'string', 'max:48'],
+            'seats.*.is_active' => ['sometimes', 'boolean'],
             'seats.*.x' => ['nullable', 'integer', 'between:-1000,1000'],
             'seats.*.y' => ['nullable', 'integer', 'between:-1000,1000'],
         ];

@@ -239,7 +239,7 @@ export function Dashboard() {
               )}
 
               {/* Primary KPI Grid */}
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+              <section aria-label="Key figures" className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
                 <StatCard
                   label="Verified Revenue"
                   value={won(d.verified_revenue)}
@@ -334,7 +334,7 @@ export function Dashboard() {
                   tone="good"
                   subvalue="New bookings today"
                 />
-              </div>
+              </section>
 
               {/* Visual Daily Trend Charts */}
               <div className="grid gap-6 xl:grid-cols-2">

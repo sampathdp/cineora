@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useMemo, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Banknote,
   BarChart3,
@@ -95,6 +95,16 @@ const NAV_SECTIONS: NavSection[] = [
   },
 ];
 
+function titleFor(pathname: string) {
+  for (const section of NAV_SECTIONS) {
+    for (const item of section.items) {
+      if (item.href === "/admin" && pathname === "/admin") return { title: item.label, section: section.title };
+      if (item.href !== "/admin" && pathname.startsWith(item.href)) return { title: item.label, section: section.title };
+    }
+  }
+  return { title: "Operations", section: "Admin" };
+}
+
 export function AdminShell({ children }: { children: ReactNode }) {
   const { status, user, can, logout } = useAuth();
   const { resolved, setPreference } = useTheme();
@@ -104,7 +114,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const toggleTheme = () => setPreference(resolved === "dark" ? "light" : "dark");
 
   const [commandOpen, setCommandOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // The mobile menu belongs to the page it was opened on, so navigating closes it without an effect.
+  const [menuOpenOn, setMenuOpenOn] = useState<string | null>(null);
+  const mobileMenuOpen = menuOpenOn === pathname;
+  const setMobileMenuOpen = (open: boolean) => setMenuOpenOn(open ? pathname : null);
   const [collapsed, setCollapsed] = useState(false);
 
   const needsLogin = status === "anonymous" || (status === "authenticated" && !user?.is_staff);
@@ -115,11 +128,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
       router.replace(`/admin/login?next=${encodeURIComponent(pathname)}`);
     }
   }, [needsLogin, needsMfa, router, pathname]);
-
-  // Close mobile menu on route change
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
 
   // Global Ctrl+K trigger shortcut
   useEffect(() => {
@@ -134,23 +142,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
   }, []);
 
   // Filter sections by role permissions
-  const visibleSections = useMemo(() => {
-    return NAV_SECTIONS.map((section) => ({
-      ...section,
-      items: section.items.filter((item) => item.permission === null || can(item.permission)),
-    })).filter((section) => section.items.length > 0);
-  }, [can]);
+  // Not wrapped in useMemo: the React Compiler memoizes it, and a manual memo on `can` blocked compilation.
+  const visibleSections = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => item.permission === null || can(item.permission)),
+  })).filter((section) => section.items.length > 0);
 
   // Find active breadcrumb label
-  const currentTitle = useMemo(() => {
-    for (const section of NAV_SECTIONS) {
-      for (const item of section.items) {
-        if (item.href === "/admin" && pathname === "/admin") return { title: item.label, section: section.title };
-        if (item.href !== "/admin" && pathname.startsWith(item.href)) return { title: item.label, section: section.title };
-      }
-    }
-    return { title: "Operations", section: "Admin" };
-  }, [pathname]);
+  const currentTitle = titleFor(pathname);
 
   if (status === "loading" || needsLogin || needsMfa || !user) {
     return (
@@ -193,6 +192,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
           "fixed inset-y-0 left-0 z-50 flex h-dvh w-72 flex-col border-r border-line/80 bg-surface/95 text-foreground shadow-2xl backdrop-blur-md transition-transform duration-300 lg:hidden",
           mobileMenuOpen ? "translate-x-0" : "-translate-x-full",
         )}
+        inert={!mobileMenuOpen}
       >
         <div className="flex h-16 items-center justify-between border-b border-line/60 px-5 bg-surface/50">
           <Link href="/admin" className="flex items-center gap-2.5">
@@ -227,7 +227,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
 
         {/* Navigation list */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2 [scrollbar-width:thin] space-y-5">
+        <nav aria-label="Mobile menu" className="min-h-0 flex-1 overflow-y-auto px-3 py-2 [scrollbar-width:thin] space-y-5">
           {visibleSections.map((sec) => (
             <div key={sec.title}>
               <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted/70">
@@ -266,7 +266,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </ul>
             </div>
           ))}
-        </div>
+        </nav>
 
         {/* User Card */}
         <div className="border-t border-line/60 bg-surface/60 p-4">
@@ -360,7 +360,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         )}
 
         {/* Navigation Categories */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:thin] space-y-5">
+        <nav aria-label="Admin" className="min-h-0 flex-1 overflow-y-auto px-3 py-3 [scrollbar-width:thin] space-y-5">
           {visibleSections.map((sec) => (
             <div key={sec.title}>
               {!collapsed ? (
@@ -406,7 +406,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
               </ul>
             </div>
           ))}
-        </div>
+        </nav>
 
         {/* Bottom Profile and Utilities */}
         <div className="border-t border-line/60 bg-surface/50 p-3">

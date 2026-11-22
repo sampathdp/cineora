@@ -167,7 +167,7 @@ class PaymentSubmissionTest extends PaymentTestCase
     public function test_an_expired_hold_cannot_receive_a_proof_even_before_the_job_runs(): void
     {
         $booking = $this->reserve();
-        Carbon::setTestNow(now()->addMinutes(16));
+        Carbon::setTestNow(now()->addMinutes((int) config('cineora.booking.seat_hold_minutes') + 1));
 
         $this->submit($booking)->assertStatus(409)->assertJson(['code' => 'hold_expired']);
         $this->assertSame(0, PaymentProof::count());

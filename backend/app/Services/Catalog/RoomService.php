@@ -75,7 +75,7 @@ class RoomService
                 if (isset($incoming[$key])) {
                     throw ValidationException::withMessages(['seats' => ["Duplicate seat {$s['row_label']}{$s['number']}."]]);
                 }
-                $incoming[$key] = ['row_label' => strtoupper($s['row_label']), 'number' => (int) $s['number'], 'seat_category_id' => $cat->id, 'x' => $s['x'] ?? null, 'y' => $s['y'] ?? null];
+                $incoming[$key] = ['row_label' => strtoupper($s['row_label']), 'number' => (int) $s['number'], 'seat_category_id' => $cat->id, 'x' => $s['x'] ?? null, 'y' => $s['y'] ?? null, 'is_active' => (bool) ($s['is_active'] ?? true)];
             }
 
             /** @var Collection<int, Seat> $existing */
@@ -92,10 +92,12 @@ class RoomService
             foreach ($incoming as $key => $row) {
                 $seat = $existing[$key] ?? null;
                 if (! $seat) {
-                    $newSeat = $room->seats()->create($row + ['is_active' => true]);
+                    $newSeat = $room->seats()->create($row);
                     $result['created']++;
 
-                    $this->syncIntoFutureShowtimes($room, $newSeat, $categories);
+                    if ($newSeat->is_active) {
+                        $this->syncIntoFutureShowtimes($room, $newSeat, $categories);
+                    }
 
                     continue;
                 }
@@ -106,10 +108,19 @@ class RoomService
                 }
 
                 $catChanged = $seat->seat_category_id !== $row['seat_category_id'];
-                $reactivated = ! $seat->is_active;
-                $seat->fill($row + ['is_active' => true]);
+                $reactivated = ! $seat->is_active && $row['is_active'];
+                $disabled = $seat->is_active && ! $row['is_active'];
+                $seat->fill($row);
                 if ($seat->isDirty()) {
                     $seat->save();
+
+                    // A disabled seat keeps its number reserved but is taken off sale.
+                    if ($disabled) {
+                        $this->pullFromSale($seat);
+                        $result['deactivated']++;
+
+                        continue;
+                    }
                     $result['updated']++;
 
                     // A re-enabled seat goes back on sale in upcoming showtimes.
@@ -143,12 +154,7 @@ class RoomService
                     continue;
                 }
                 if (isset($inventory[$seat->id])) {
-                    $free = DB::table('showtime_seats')->where('seat_id', $seat->id)->where('status', 'available')->whereNull('booking_id');
-                    // Rows referenced by past holds/bookings cannot be deleted (FK restrict), so block them instead.
-                    $referenced = fn ($q) => $q->whereExists(fn ($e) => $e->from('seat_holds')->whereColumn('seat_holds.showtime_seat_id', 'showtime_seats.id'))
-                        ->orWhereExists(fn ($e) => $e->from('booking_seats')->whereColumn('booking_seats.showtime_seat_id', 'showtime_seats.id'));
-                    (clone $free)->where($referenced)->update(['status' => 'blocked', 'updated_at' => now()]);
-                    (clone $free)->whereNot($referenced)->delete();
+                    $this->pullFromSale($seat);
                     if ($seat->is_active) {
                         $seat->update(['is_active' => false]);
                     }
@@ -163,6 +169,16 @@ class RoomService
 
             return $result;
         });
+    }
+
+    /** Removes a seat's unsold showtime inventory: blocks rows referenced by past holds/bookings (FK restrict), deletes the rest. */
+    private function pullFromSale(Seat $seat): void
+    {
+        $free = DB::table('showtime_seats')->where('seat_id', $seat->id)->where('status', 'available')->whereNull('booking_id');
+        $referenced = fn ($q) => $q->whereExists(fn ($e) => $e->from('seat_holds')->whereColumn('seat_holds.showtime_seat_id', 'showtime_seats.id'))
+            ->orWhereExists(fn ($e) => $e->from('booking_seats')->whereColumn('booking_seats.showtime_seat_id', 'showtime_seats.id'));
+        (clone $free)->where($referenced)->update(['status' => 'blocked', 'updated_at' => now()]);
+        (clone $free)->whereNot($referenced)->delete();
     }
 
     /** Puts a seat on sale in every upcoming, non-cancelled showtime of the room (adds missing rows, unblocks blocked ones). */

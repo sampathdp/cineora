@@ -26,8 +26,8 @@ class BookingCreateTest extends BookingTestCase
         $this->assertSame([28000, 28000, 0, 0], [(int) $b->subtotal, (int) $b->total, (int) $b->discount, (int) $b->fee]);
         $this->assertSame('KRW', $b->currency);
         $this->assertMatchesRegularExpression('/^CIN-[A-HJ-NP-Z2-9]{8}$/', $b->reference);
-        $this->assertSame(15, (int) $b->created_at->diffInMinutes($b->hold_expires_at, true));
-        $this->assertSame(30, (int) $b->created_at->diffInMinutes($b->payment_deadline_at, true));
+        $this->assertSame((int) config('cineora.booking.seat_hold_minutes'), (int) $b->created_at->diffInMinutes($b->hold_expires_at, true));
+        $this->assertSame((int) config('cineora.booking.payment_deadline_minutes'), (int) $b->created_at->diffInMinutes($b->payment_deadline_at, true));
 
         $this->assertEqualsCanonicalizing(['A1', 'B1'], $b->seats()->pluck('seat_label')->all());
         $this->assertSame([12000, 16000], $b->seats()->orderBy('unit_price')->pluck('unit_price')->map(fn ($p) => (int) $p)->all());
@@ -59,7 +59,7 @@ class BookingCreateTest extends BookingTestCase
         $this->assertSame(BookingStatus::PENDING_PAYMENT, $b->status);
         $this->assertSame($user->id, $b->user_id);
         $this->assertSame($this->cinema->id, $b->cinema_id);
-        $this->assertTrue($b->hold_expires_at->lt(now()->addHour()));
+        $this->assertTrue($b->hold_expires_at->lte(now()->addMinutes((int) config('cineora.booking.seat_hold_minutes'))));
     }
 
     public function test_admin_price_change_after_booking_cannot_alter_the_historic_price(): void
@@ -116,7 +116,7 @@ class BookingCreateTest extends BookingTestCase
         $fast = $this->customer();
         $old = Booking::where('public_id', $this->book($slow, ['A1', 'A2'])->json('data.id'))->first();
 
-        Carbon::setTestNow(now()->addMinutes(16));
+        Carbon::setTestNow(now()->addMinutes((int) config('cineora.booking.seat_hold_minutes') + 1));
         $this->book($fast, ['A1'])->assertCreated();
         $taken = ShowtimeSeat::whereHas('seat', fn ($s) => $s->where('row_label', 'A')->where('number', 1))->first();
         $this->assertNotSame($old->id, $taken->booking_id);
@@ -286,6 +286,8 @@ class BookingCreateTest extends BookingTestCase
 
     public function test_per_user_limit_and_usage_are_tracked_and_given_back_on_cancel(): void
     {
+        // Two unpaid bookings must be allowed, so the second request reaches the promo rule under test.
+        config(['cineora.booking.max_active_unpaid_bookings' => 2]);
         $promo = $this->promo(['code' => 'ONCE', 'per_user_limit' => 1, 'usage_limit' => 5]);
         $user = $this->customer();
 

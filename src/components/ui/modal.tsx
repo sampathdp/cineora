@@ -25,7 +25,9 @@ export function useScrollLock(active: boolean) {
 /** Focus trap, Escape to close, focus restore. */
 export function useDialogBehavior(open: boolean, onClose: () => void, panelRef: RefObject<HTMLElement | null>) {
   const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   // 1. Initial focus when modal opens (runs only when `open` changes, never steals focus while typing)
   useEffect(() => {

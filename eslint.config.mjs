@@ -12,6 +12,12 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Build output of other dist dirs (E2E, audits) and the Laravel app's PHP dependencies.
+    ".next-*/**",
+    "backend/**",
+    "test-results/**",
+    "playwright-report/**",
+    "graft/**",
   ]),
 ]);
 

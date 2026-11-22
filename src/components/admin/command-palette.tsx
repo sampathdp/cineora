@@ -102,18 +102,26 @@ export function AdminCommandPalette({
     });
   }, [availableCommands, query]);
 
-  // Reset selected index when query changes
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
-  // Focus input when dialog opens
-  useEffect(() => {
+  // Reset the search each time the dialog opens (adjusted during render, not in an effect).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setQuery("");
       setSelectedIndex(0);
-      setTimeout(() => inputRef.current?.focus(), 50);
     }
+  }
+
+  const changeQuery = (value: string) => {
+    setQuery(value);
+    setSelectedIndex(0);
+  };
+
+  // Focus input when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(t);
   }, [open]);
 
   const execute = (item: CommandItem) => {
@@ -162,14 +170,14 @@ export function AdminCommandPalette({
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => changeQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type a command or jump to page…"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted/60"
           />
           {query ? (
             <button
-              onClick={() => setQuery("")}
+              onClick={() => changeQuery("")}
               className="rounded-lg p-1 text-muted hover:text-foreground cursor-pointer"
             >
               <X className="size-4" />

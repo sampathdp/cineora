@@ -630,11 +630,12 @@ function CreateShowtime({
 
           {/* Show Times Picker */}
           <div className="rounded-xl border border-line/60 bg-surface/60 p-4">
-            <label className="block text-xs font-bold uppercase tracking-wider text-muted mb-2">
+            <label htmlFor="n-time" className="block text-xs font-bold uppercase tracking-wider text-muted mb-2">
               Screening Times ({cinema?.timezone ?? "Local Time"})
             </label>
             <div className="flex items-center gap-2">
               <input
+                id="n-time"
                 type="time"
                 value={timeInput}
                 onChange={(e) => setTimeInput(e.target.value)}

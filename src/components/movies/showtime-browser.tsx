@@ -132,8 +132,9 @@ export function ShowtimeBrowser({ slug }: { slug: string }) {
     return { slug: cs, name: first.cinema.name, timezone: first.cinema.timezone };
   });
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const tomorrowStr = new Date(now.getTime() + 86400000).toISOString().slice(0, 10);
 
   const scrollDates = (direction: "left" | "right") => {
     if (!datesContainerRef.current) return;

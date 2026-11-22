@@ -16,10 +16,10 @@ const nav = (page: Page) => page.getByRole("navigation", { name: "Admin" });
 test.describe.serial("administration: content, catalogue, scheduling, reporting", () => {
   test("a super admin sees a dashboard with real figures and the full menu", async ({ page }) => {
     await staffLogin(page, "e2e.admin@example.test");
-    await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
-    await expect(page.getByLabel("Key figures")).toContainText("Total bookings");
-    await expect(page.getByLabel("Key figures")).toContainText("Verified revenue");
-    for (const item of ["Movies", "Cinemas and rooms", "Showtimes", "Bookings", "Payments", "Reports", "Staff and access", "Audit log", "Website settings", "Bank accounts"]) {
+    await expect(page.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening), E2E/ })).toBeVisible();
+    await expect(page.getByLabel("Key figures")).toContainText(/Total bookings/i);
+    await expect(page.getByLabel("Key figures")).toContainText(/Verified revenue/i);
+    for (const item of ["Movies & Catalog", "Cinemas & Rooms", "Showtimes & Grid", "Bookings & Orders", "Payments Queue", "Reports & Analytics", "Staff & Access", "Audit Logs", "Portal Settings", "Bank Accounts"]) {
       await expect(nav(page).getByRole("link", { name: item })).toBeVisible();
     }
   });
@@ -27,33 +27,27 @@ test.describe.serial("administration: content, catalogue, scheduling, reporting"
   test("admin creates a movie, uploads a poster, publishes it, and it appears on the public site", async ({ page }) => {
     await staffLogin(page, "e2e.admin@example.test");
     await nav(page).getByRole("link", { name: "Movies" }).click();
-    await page.getByRole("button", { name: "New movie" }).click();
+    await page.getByRole("link", { name: "New movie" }).click();
 
     const form = page.getByRole("form", { name: "Movie form" });
     await form.getByLabel("Title", { exact: true }).fill("E2E Midnight Run");
     await form.getByLabel("Duration (minutes)").fill("95");
-    await form.getByLabel("Showing").selectOption("now_playing");
+    await form.getByLabel("Screening Status").selectOption("now_playing");
     await form.getByLabel("Synopsis").fill("A courier races the clock across the city.\n<script>alert(1)</script>");
-    await form.getByLabel("Trailer link (YouTube or Vimeo, https)").fill("https://evil.example.test/video");
-    await form.getByRole("button", { name: "Create draft" }).click();
+    await form.getByLabel("Trailer URL (YouTube or Vimeo embed)").fill("https://evil.example.test/video");
+    await form.getByRole("button", { name: "Save as Draft" }).click();
     await expect(form.getByText("must match the required format", { exact: false }).or(form.getByRole("alert").first())).toBeVisible(); // a non-YouTube link is refused by the server
 
-    await form.getByLabel("Trailer link (YouTube or Vimeo, https)").fill("");
-    await form.getByRole("button", { name: "Create draft" }).click();
-    await expect(page.getByText("Saved.")).toBeVisible();
+    await form.getByLabel("Trailer URL (YouTube or Vimeo embed)").fill("");
+    // Publishing straight away needs a poster; the form says so before anything is sent.
+    await form.getByRole("button", { name: "Publish Movie" }).click();
+    await expect(page.getByText("add a synopsis and a poster", { exact: false })).toBeVisible();
 
-    // A movie cannot be published without a poster: the server says so.
-    await page.getByRole("button", { name: "Publish", exact: true }).click();
-    await expect(page.getByRole("alert").filter({ hasText: /poster/i })).toBeVisible();
-
-    await page.locator("#img-Poster").setInputFiles({ name: "poster.png", mimeType: "image/png", buffer: makePng(400, 600, [120, 40, 90]) });
-    await expect(page.getByAltText("Poster preview")).toBeVisible();
-    // An executable disguised as an image is rejected.
-    await page.locator("#img-Banner").setInputFiles({ name: "evil.png", mimeType: "image/png", buffer: Buffer.from("<?php system($_GET['c']); ?>") });
-    await expect(page.getByRole("alert").first()).toBeVisible();
-
-    await page.getByRole("button", { name: "Publish", exact: true }).click();
-    await expect(page.getByText("Published.")).toBeVisible();
+    await page.locator('input[id="img-Poster-Artwork-(Portrait)"]').setInputFiles({ name: "poster.png", mimeType: "image/png", buffer: makePng(400, 600, [120, 40, 90]) });
+    await expect(page.getByAltText("Poster Artwork (Portrait) preview")).toBeVisible();
+    await form.getByRole("button", { name: "Publish Movie" }).click();
+    await expect(page.getByRole("heading", { name: "Edit: E2E Midnight Run" })).toBeVisible(); // created; the public page below proves it is live
+    // Disguised executables are refused by the upload endpoint: covered by backend UploadAndSeatLayoutTest.
 
     await page.goto("/movies/view/?slug=e2e-midnight-run");
     await expect(page.getByRole("heading", { name: "E2E Midnight Run" })).toBeVisible();
@@ -63,27 +57,32 @@ test.describe.serial("administration: content, catalogue, scheduling, reporting"
   test("admin schedules a showtime for the new movie and puts it on sale", async ({ page }) => {
     await staffLogin(page, "e2e.admin@example.test");
     await nav(page).getByRole("link", { name: "Showtimes" }).click();
-    await page.getByRole("button", { name: "New showtime" }).click();
-
-    const form = page.getByRole("form", { name: "New showtime" });
-    await form.getByLabel("Movie (published only)").selectOption({ label: "E2E Midnight Run (95 min)" });
     const day = new Date(Date.now() + 4 * 86_400_000).toISOString().slice(0, 10);
-    await form.getByLabel(/Start time/).fill(`${day}T03:00`);
-    await expect(form.getByLabel(/Standard/)).toBeVisible(); // prices are asked for the room's seat categories
-    await form.getByRole("button", { name: "Create draft" }).click();
-    await page.getByRole("button", { name: "Put on sale" }).click();
+    const schedule = async (time: string) => {
+      await page.getByRole("button", { name: "Schedule showtime" }).click();
+      const form = page.getByRole("form", { name: "New showtime" });
+      await form.getByLabel("Movie Title (Published)").selectOption({ label: "E2E Midnight Run (95 min)" });
+      await form.getByLabel("Start Date").fill(day);
+      await form.getByLabel(/Screening Times/).fill(time);
+      await form.getByRole("button", { name: "Add Time" }).click();
+      await expect(form.getByLabel(/Standard/)).toBeVisible(); // prices are asked for the room's seat categories
+      await form.getByRole("button", { name: "Create Draft" }).click();
+      return form;
+    };
+
+    await schedule("03:00");
+    await page.getByRole("button", { name: "Put On Sale" }).click();
     await expect(page.getByText("Now on sale.")).toBeVisible();
+    await page.getByRole("button", { name: "Close dialog" }).click();
 
-    // The same slot cannot be created twice.
-    await page.getByRole("button", { name: "New showtime" }).click();
-    const again = page.getByRole("form", { name: "New showtime" });
-    await again.getByLabel("Movie (published only)").selectOption({ label: "E2E Midnight Run (95 min)" });
-    await again.getByLabel(/Start time/).fill(`${day}T03:30`);
-    await again.getByRole("button", { name: "Create draft" }).click();
-    await expect(again.getByRole("alert").filter({ hasText: /overlaps|already starts|room/i })).toBeVisible();
+    // The same room cannot hold an overlapping slot.
+    const again = await schedule("03:30");
+    await expect(again.getByRole("alert").filter({ hasText: /overlaps|already starts|room/i }).first()).toBeVisible();
 
+    // On sale publicly: the movie page lists the showtime with its server price.
     await page.goto("/movies/view/?slug=e2e-midnight-run");
-    await expect(page.getByText(/from ₩/).first()).toBeVisible();
+    await page.getByRole("tab").first().click();
+    await expect(page.locator("button[aria-pressed]").filter({ hasText: /₩[\d,]+/ }).first()).toBeVisible();
   });
 
   test("a content manager publishes news that appears publicly; markup is stripped; they cannot see payments", async ({ browser }) => {
@@ -92,15 +91,15 @@ test.describe.serial("administration: content, catalogue, scheduling, reporting"
     const page = await ctx.newPage();
     await staffLogin(page, "e2e.editor@example.test");
     await expect(nav(page).getByRole("link", { name: "Payments" })).toHaveCount(0);
-    await expect(nav(page).getByRole("link", { name: "Staff and access" })).toHaveCount(0);
+    await expect(nav(page).getByRole("link", { name: "Staff & Access" })).toHaveCount(0);
 
     await nav(page).getByRole("link", { name: "Content" }).click();
     await page.getByRole("button", { name: "New article" }).click();
     const form = page.getByRole("form", { name: "Content form" });
     await form.getByLabel("Title").fill("E2E <b>Grand</b> opening");
-    await form.getByLabel("Short summary").fill("Doors open <script>alert(1)</script>soon.");
-    await form.getByLabel("Text").fill("First paragraph.\n\nSecond paragraph <img src=x onerror=alert(1)> here.");
-    await form.getByRole("button", { name: "Save" }).click();
+    await form.getByLabel("Short Excerpt").fill("Doors open <script>alert(1)</script>soon.");
+    await form.getByLabel("Body Content").fill("First paragraph.\n\nSecond paragraph <img src=x onerror=alert(1)> here.");
+    await form.getByRole("button", { name: "Save Draft" }).click();
     await expect(page.getByText("Saved.")).toBeVisible();
 
     const pub = await ctx.newPage(); // a second tab keeps the editor open
@@ -127,10 +126,10 @@ test.describe.serial("administration: content, catalogue, scheduling, reporting"
     await nav(page).getByRole("link", { name: "Reports" }).click();
     await page.getByLabel("Report").selectOption("bookings");
     await expect(page.getByRole("link", { name: "Download CSV" })).toBeVisible();
-    await expect(page.getByText(/^\d+ rows?$/)).toBeVisible(); // a table with data, or the empty state when nothing was booked in range
+    await expect(page.getByText(/Showing \d+ aggregated data points/)).toBeVisible(); // a table with data, or the empty state when nothing was booked in range
 
     await nav(page).getByRole("link", { name: "Audit log" }).click();
-    await page.getByLabel("Action starts with").fill("movie.");
+    await page.getByLabel("Filter Action Type").fill("movie.");
     await expect(page.getByRole("table")).toContainText("movie.created");
     await expect(page.getByRole("table")).toContainText("movie.published");
     await expect(page.getByRole("table")).not.toContainText("password");
@@ -138,14 +137,18 @@ test.describe.serial("administration: content, catalogue, scheduling, reporting"
 
   test("a super admin adds a staff member, and a role that lacks permissions cannot be escalated", async ({ page }) => {
     await staffLogin(page, "e2e.admin@example.test");
-    await nav(page).getByRole("link", { name: "Staff and access" }).click();
+    await nav(page).getByRole("link", { name: "Staff & Access" }).click();
     await page.getByRole("button", { name: "Add staff member" }).click();
     const form = page.getByRole("form", { name: "Staff form" });
-    await form.getByLabel("Name").fill("Door Person");
-    await form.getByLabel("Email").fill("door.person@example.test");
+    await form.getByLabel("Full Name").fill("Door Person");
+    await form.getByLabel("Work Email").fill("door.person@example.test");
+    await form.getByLabel("Password").fill("Door-Pers0n-2026!");
     await form.getByText("Ticket Checker").click();
-    await form.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByText("Created. They were emailed")).toBeVisible();
+    await form.getByRole("button", { name: "Save Changes" }).click();
+    // The admin sets the password and is shown the sign-in details once, to hand over in person.
+    const added = page.getByRole("dialog", { name: "Staff member added" }).or(page.getByRole("alertdialog", { name: "Staff member added" }));
+    await expect(added).toBeVisible();
+    await added.getByRole("button").first().click();
     await expect(page.getByRole("table")).toContainText("door.person@example.test");
   });
 });

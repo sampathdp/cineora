@@ -33,6 +33,12 @@ class CreateSuperAdminTest extends TestCase
             ->expectsQuestion('Confirm password', 'password')
             ->assertFailed();
 
+        // 11 characters with every character class: still too short for a super admin.
+        $this->artisan('cineora:create-super-admin', ['--email' => 'a@example.test', '--name' => 'A'])
+            ->expectsQuestion('Password (min 12 chars, mixed case, numbers, symbols)', 'Sh0rt!Pa#1x')
+            ->expectsQuestion('Confirm password', 'Sh0rt!Pa#1x')
+            ->assertFailed();
+
         $this->artisan('cineora:create-super-admin', ['--email' => 'a@example.test', '--name' => 'A'])
             ->expectsQuestion('Password (min 12 chars, mixed case, numbers, symbols)', 'Str0ng!Passw0rd#1')
             ->expectsQuestion('Confirm password', 'Different!Passw0rd#2')

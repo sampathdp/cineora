@@ -36,7 +36,8 @@ export default defineConfig({
       },
     },
     {
-      command: "npm run build && node scripts/serve-static.mjs out 3110",
+      // With `output: "export"`, distDir IS the export folder: serve what this build wrote, never a stale out/.
+      command: "npm run build && node scripts/serve-static.mjs .next-e2e 3110",
       url: SITE,
       reuseExistingServer: false,
       timeout: 240_000,

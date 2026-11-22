@@ -9,32 +9,40 @@ async function login(page: Page, email: string, next = "/account") {
   await page.getByRole("button", { name: "Sign in" }).click();
 }
 
-/** Opens the first movie with showtimes, picks the first date and time, returns once the seat map is visible. */
-async function openSeatMap(page: Page) {
-  await page.goto("/movies/view/?slug=ashes-of-the-lantern");
+/** Opens the first movie with showtimes and picks the first date and time. */
+async function pickShowtime(page: Page, goto = true) {
+  if (goto) await page.goto("/movies/view/?slug=ashes-of-the-lantern");
   await page.getByRole("tab").first().click();
-  await page.locator("ul button[aria-pressed]").first().click();
+  await page.locator("button[aria-pressed]").filter({ hasText: /seats/ }).first().click(); // showtime card
+}
+
+/** Signed-in customers only: picks the first showtime and returns once the seat map is visible. */
+async function openSeatMap(page: Page) {
+  await pickShowtime(page);
   await expect(page.getByRole("group", { name: "Seats" })).toBeVisible();
 }
 
 const seat = (page: Page, label: string) => page.getByRole("button", { name: new RegExp(`^Seat ${label},`) });
 
 test.describe.serial("customer booking journey (real browser, real API, real MySQL)", () => {
-  test("browse, pick seats, sign in, reserve, see the hold", async ({ page }) => {
-    await openSeatMap(page);
+  test("browse, sign in, pick seats, reserve, see the hold", async ({ page }) => {
+    // Guests see showtimes but must sign in before the seat map; sign-in brings them back to the movie.
+    await pickShowtime(page);
+    await expect(page.getByText("Sign in to book seats")).toBeVisible();
+    await page.getByRole("main").getByRole("link", { name: "Sign in" }).click();
+    await page.getByLabel("Email", { exact: true }).fill("e2e.one@example.test");
+    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await expect(page).toHaveURL(/\/movies\/view\/\?slug=ashes-of-the-lantern/);
+
+    await pickShowtime(page, false);
+    await expect(page.getByRole("group", { name: "Seats" })).toBeVisible();
     await expect(page.getByText("₩12,000").first()).toBeVisible();
 
     await seat(page, "D5").click();
     await seat(page, "D6").click();
     await expect(page.getByText("Quantity").first()).toBeVisible();
     await page.getByRole("button", { name: "Continue to checkout" }).first().click();
-
-    // Anonymous visitors are asked to sign in; the selection is remembered.
-    await expect(page.getByRole("heading", { name: "Sign in to reserve" })).toBeVisible();
-    await page.getByRole("main").getByRole("link", { name: "Sign in" }).click();
-    await page.getByLabel("Email", { exact: true }).fill("e2e.one@example.test");
-    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-    await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page.getByRole("heading", { name: "Reserve your seats" })).toBeVisible();
     await expect(page.getByText("D5").first()).toBeVisible();
@@ -80,8 +88,8 @@ test.describe.serial("customer booking journey (real browser, real API, real MyS
   test("the owner cancels and the seats go back on sale", async ({ page }) => {
     await login(page, "e2e.one@example.test", "/account/bookings");
     await page.getByRole("link", { name: /CIN-/ }).first().click();
-    page.once("dialog", (d) => d.accept());
     await page.getByRole("button", { name: "Cancel booking" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Cancel booking" }).click();
     await expect(page.getByText("These seats were released.")).toBeVisible();
 
     await openSeatMap(page);
