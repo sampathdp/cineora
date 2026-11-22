@@ -663,7 +663,8 @@ function MovieEditor({
         {checkError && <p className="text-sm text-rose-500">{checkError}</p>}
 
         {/* Form Action Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/60 pt-4">
+        {/* Sticky so Save / Close / Delete stay reachable at the bottom of the screen on long forms */}
+        <div className="sticky bottom-0 z-10 -mx-5 -mb-5 flex flex-wrap items-center justify-between gap-3 rounded-b-2xl border-t border-line/60 bg-elevated/95 px-5 py-4 backdrop-blur-md sm:-mx-6 sm:-mb-6 sm:px-6">
           <div className="flex items-center gap-2.5">
             {!movie && canEdit && can("movies.publish") && (
               <Button type="button" onClick={(e) => save(e, true)} disabled={act.busy} className="shadow-sm">
