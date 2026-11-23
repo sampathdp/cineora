@@ -4,7 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\EmailOtpNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -82,23 +82,61 @@ class PasswordAndVerificationTest extends AuthTestCase
         $this->assertSame(0, DB::table('sessions')->where('id', 'other-device')->count());
     }
 
-    public function test_email_verification_link_marks_verified_and_redirects_to_the_frontend_only(): void
+    private function sentCode(User $user): string
+    {
+        $code = null;
+        Notification::assertSentTo($user, EmailOtpNotification::class, function ($n) use (&$code) {
+            $code = $n->code;
+
+            return true;
+        });
+
+        return $code;
+    }
+
+    public function test_emailed_code_verifies_the_address_once(): void
     {
         Notification::fake();
         $user = $this->customer(['email_verified_at' => null]);
         $user->sendEmailVerificationNotification();
+        $code = $this->sentCode($user);
+        $this->assertMatchesRegularExpression('/^\d{6}$/', $code);
 
-        $sent = null;
-        Notification::assertSentTo($user, VerifyEmail::class, function ($n) use ($user, &$sent) {
-            $sent = $n->toMail($user)->actionUrl;
-
-            return true;
-        });
-        $this->assertStringContainsString('/auth/email/verify/'.$user->public_id.'/', $sent);
-        $this->assertStringNotContainsString('/verify/'.$user->id.'/', $sent);
-
-        $this->get($sent)->assertRedirect('http://localhost:3000/verify-email?status=success');
+        $this->postJson('/api/v1/auth/email/verify-code', ['email' => strtoupper($user->email), 'code' => $code])->assertOk();
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
+
+        // single use
+        $this->postJson('/api/v1/auth/email/verify-code', ['email' => $user->email, 'code' => $code])->assertStatus(422);
+    }
+
+    public function test_wrong_codes_are_rejected_and_five_misses_burn_the_code(): void
+    {
+        Notification::fake();
+        $user = $this->customer(['email_verified_at' => null]);
+        $user->sendEmailVerificationNotification();
+        $code = $this->sentCode($user);
+        $wrong = $code === '000000' ? '111111' : '000000';
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/v1/auth/email/verify-code', ['email' => $user->email, 'code' => $wrong])
+                ->assertStatus(422)->assertJsonPath('code', 'invalid_code');
+        }
+        $this->postJson('/api/v1/auth/email/verify-code', ['email' => $user->email, 'code' => $code])->assertStatus(422);
+        $this->assertFalse($user->fresh()->hasVerifiedEmail());
+    }
+
+    public function test_unknown_email_looks_the_same_as_a_wrong_code(): void
+    {
+        Notification::fake();
+        $user = $this->customer(['email_verified_at' => null]);
+        $known = $this->postJson('/api/v1/auth/email/verify-code', ['email' => $user->email, 'code' => '123456']);
+        $unknown = $this->postJson('/api/v1/auth/email/verify-code', ['email' => 'ghost@example.test', 'code' => '123456']);
+        $this->assertSame($known->json(), $unknown->json());
+
+        $a = $this->postJson('/api/v1/auth/email/send-code', ['email' => $user->email])->assertOk();
+        $b = $this->postJson('/api/v1/auth/email/send-code', ['email' => 'ghost@example.test'])->assertOk();
+        $this->assertSame($a->json(), $b->json());
+        Notification::assertSentToTimes($user, EmailOtpNotification::class, 1);
     }
 
     public function test_tampered_or_mismatched_verification_links_do_not_verify(): void
@@ -122,11 +160,11 @@ class PasswordAndVerificationTest extends AuthTestCase
 
         $unverified = $this->customer(['email_verified_at' => null]);
         $this->as($unverified)->postJson('/api/v1/auth/email/resend')->assertOk();
-        Notification::assertSentTo($unverified, VerifyEmail::class);
+        Notification::assertSentTo($unverified, EmailOtpNotification::class);
 
         $verified = $this->customer();
         $this->as($verified)->postJson('/api/v1/auth/email/resend')->assertOk();
-        Notification::assertNotSentTo($verified, VerifyEmail::class);
+        Notification::assertNotSentTo($verified, EmailOtpNotification::class);
     }
 
     public function test_profile_update_cannot_change_email_roles_or_activation(): void

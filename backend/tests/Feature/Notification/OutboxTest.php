@@ -4,6 +4,7 @@ namespace Tests\Feature\Notification;
 
 use App\Enums\BookingStatus;
 use App\Mail\TemplateMail;
+use App\Mail\TicketsMail;
 use App\Models\OutboxMessage;
 use App\Services\Notification\Outbox;
 use App\Services\Notification\OutboxDispatcher;
@@ -25,8 +26,10 @@ class OutboxTest extends TicketTestCase
         $this->assertSame(2, app(OutboxDispatcher::class)->dispatchDue());
         $this->assertSame(0, app(OutboxDispatcher::class)->dispatchDue(), 'nothing is sent twice');
 
-        Mail::assertSent(TemplateMail::class, 2);
+        Mail::assertSent(TemplateMail::class, 1); // proof received
+        Mail::assertSent(TicketsMail::class, 1);  // tickets with QR codes
         Mail::assertSent(TemplateMail::class, fn ($m) => $m->hasTo($this->customer->email));
+        Mail::assertSent(TicketsMail::class, fn ($m) => $m->hasTo($this->customer->email));
         $this->assertSame(2, OutboxMessage::where('status', 'sent')->count());
         $this->assertSame(2, \DB::table('notification_attempts')->where('status', 'sent')->count());
     }
@@ -55,7 +58,9 @@ class OutboxTest extends TicketTestCase
 
     public function test_after_repeated_failures_a_message_is_marked_failed_not_retried_forever(): void
     {
-        Outbox::publish('booking.confirmed', ['booking_id' => $this->reserve()->id]);
+        $booking = $this->confirmed();
+        OutboxMessage::query()->delete();
+        Outbox::publish('booking.confirmed', ['booking_id' => $booking->id]);
         $msg = OutboxMessage::firstOrFail();
         $msg->forceFill(['attempts' => 4])->save();
 
@@ -80,16 +85,41 @@ class OutboxTest extends TicketTestCase
         Mail::assertNothingSent();
     }
 
-    public function test_emails_never_contain_proof_files_account_numbers_or_qr_tokens(): void
+    public function test_ticket_email_carries_one_inline_qr_per_seat_and_no_secrets_in_text(): void
     {
         Mail::fake();
         $booking = $this->confirmed();
         app(OutboxDispatcher::class)->dispatchDue();
 
-        Mail::assertSent(TemplateMail::class, function (TemplateMail $mail) use ($booking) {
+        Mail::assertSent(TicketsMail::class, function (TicketsMail $mail) use ($booking) {
             $html = $mail->render();
             $ticket = \App\Models\Ticket::where('booking_id', $booking->id)->first();
+            // The QR token only travels inside the embedded images, never as readable text or a link.
             foreach (['110-123-456789', $ticket->qr_token_encrypted, 'CINEORA1:', 'payment-proofs'] as $secret) {
+                $this->assertStringNotContainsString($secret, $html);
+            }
+            $this->assertSame(2, substr_count($html, 'src="data:image/png;base64,')); // render() inlines the CID images
+            $this->assertStringContainsString('Seat A1', $html);
+
+            return true;
+        });
+    }
+
+    public function test_qr_png_encodes_a_valid_image(): void
+    {
+        $png = TicketsMail::qrPng('CINEORA1:'.str_repeat('a', 43));
+        $this->assertStringStartsWith("\x89PNG", $png);
+    }
+
+    public function test_status_emails_never_contain_proof_files_account_numbers_or_qr_tokens(): void
+    {
+        Mail::fake();
+        $this->inReview();
+        app(OutboxDispatcher::class)->dispatchDue();
+
+        Mail::assertSent(TemplateMail::class, function (TemplateMail $mail) {
+            $html = $mail->render();
+            foreach (['110-123-456789', 'CINEORA1:', 'payment-proofs'] as $secret) {
                 $this->assertStringNotContainsString($secret, $html);
             }
 

@@ -7,10 +7,11 @@ import { safeRedirect } from "@/lib/safe-redirect";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { MailCheck } from "lucide-react";
+import { CheckCircle2, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
 import { AuthCard, Field, FormMessage, applyApiError } from "./form-kit";
+import { VerifyCodeForm } from "./verify-code-form";
 
 // Mirrors the server rules for fast feedback; the server remains the authority.
 const schema = z
@@ -39,6 +40,7 @@ export function RegisterForm() {
   const rawNext = useSearchParams().get("next");
   const loginHref = rawNext ? `/login?next=${encodeURIComponent(safeRedirect(rawNext))}` : "/login";
   const [done, setDone] = useState<string | null>(null);
+  const [verified, setVerified] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const {
     register,
@@ -57,16 +59,31 @@ export function RegisterForm() {
     }
   }
 
+  if (verified) {
+    return (
+      <AuthCard title="Email verified">
+        <div role="status" className="flex flex-col gap-3">
+          <CheckCircle2 className="size-8 text-accent-text" aria-hidden />
+          <p className="text-muted">Your account is ready. Sign in to book tickets.</p>
+          <Link href={loginHref} className="font-semibold text-accent-text hover:underline">
+            Continue to sign in
+          </Link>
+        </div>
+      </AuthCard>
+    );
+  }
+
   if (done) {
     return (
       <AuthCard title="Check your inbox">
-        <div role="status" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           <MailCheck className="size-8 text-accent-text" aria-hidden />
           <p className="text-muted">
-            If <strong className="text-foreground">{done}</strong> can be registered, we have sent a message with the next steps. The link is valid for 60 minutes.
+            If <strong className="text-foreground">{done}</strong> can be registered, we have emailed a 6-digit code. It is valid for 10 minutes.
           </p>
-          <Link href={loginHref} className="font-semibold text-accent-text hover:underline">
-            Continue to sign in
+          <VerifyCodeForm email={done} onVerified={() => setVerified(true)} />
+          <Link href={loginHref} className="text-sm font-semibold text-accent-text hover:underline">
+            Already verified? Sign in
           </Link>
         </div>
       </AuthCard>

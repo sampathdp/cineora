@@ -58,6 +58,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/email/verify/{user:public_id}/{hash}', [EmailVerificationController::class, 'verify'])
             ->middleware(['signed', 'throttle:verification'])->name('auth.verify');
 
+        // Six-digit email codes; no session needed because registration does not sign the customer in.
+        Route::post('/email/send-code', [EmailVerificationController::class, 'sendCode'])->middleware('throttle:otp-send');
+        Route::post('/email/verify-code', [EmailVerificationController::class, 'verifyCode'])->middleware('throttle:otp-verify');
+
         Route::middleware('auth:sanctum')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::get('/me', [AuthController::class, 'me']);

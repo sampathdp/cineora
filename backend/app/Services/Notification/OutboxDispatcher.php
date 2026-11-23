@@ -2,7 +2,9 @@
 
 namespace App\Services\Notification;
 
+use App\Enums\TicketStatus;
 use App\Mail\TemplateMail;
+use App\Mail\TicketsMail;
 use App\Models\Booking;
 use App\Models\NotificationAttempt;
 use App\Models\OutboxMessage;
@@ -64,10 +66,18 @@ class OutboxDispatcher
         $title = $booking->showtime?->movie?->title ?? 'your booking';
         $link = ["{$site}/account/bookings/{$booking->public_id}", 'View booking'];
 
+        if ($message->type === 'booking.confirmed') {
+            if (! $booking->tickets()->where('status', TicketStatus::Valid)->exists()) {
+                return; // cancelled or refunded before we got to it: no tickets to send
+            }
+            Mail::to($booking->user->email)->send(new TicketsMail($booking, $site.'/account/tickets'));
+
+            return;
+        }
+
         [$subject, $lines, $action] = match ($message->type) {
             'payment.proof_received' => ["We received your payment proof ({$booking->reference})", ["We received your bank transfer proof for {$title}.", 'A member of our team will verify it shortly. Your seats stay reserved while we check.'], $link],
             'payment.rejected' => ["Your payment could not be verified ({$booking->reference})", ["We could not verify the transfer for {$title}.", 'Reason: '.($p['reason'] ?? 'not specified'), 'If you still have time, you can upload a new proof from your booking page.'], $link],
-            'booking.confirmed' => ["Your tickets are ready ({$booking->reference})", ["Your payment for {$title} is confirmed.", 'Your tickets, with their QR codes, are on your booking page.'], [$site.'/account/tickets', 'Open my tickets']],
             'payment.exception' => ["We need to check your booking ({$booking->reference})", ["Your payment for {$title} needs a manual check by our team.", 'Your seats are protected while we look into it. We will contact you if we need anything from you.'], $link],
             'booking.cancelled' => ["Your booking was cancelled ({$booking->reference})", ["Your booking for {$title} was cancelled."], $link],
             'refund.requested' => ["We received your refund request ({$booking->reference})", ["We received your refund request for {$title}.", 'We will review it and email you the outcome.'], $link],

@@ -6,7 +6,7 @@ use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Notifications\AccountExistsNotification;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\EmailOtpNotification;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -32,7 +32,7 @@ class RegistrationAndLoginTest extends AuthTestCase
         $this->assertFalse($user->isStaff());
         $this->assertNull($user->email_verified_at);
         $this->assertNotSame('Str0ngPass99', $user->password);
-        Notification::assertSentTo($user, VerifyEmail::class);
+        Notification::assertSentTo($user, EmailOtpNotification::class);
         $this->assertSame(1, AuditLog::where('action', 'auth.register')->count());
     }
 

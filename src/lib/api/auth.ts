@@ -45,6 +45,8 @@ export const authApi = {
   resetPassword: (input: { token: string; email: string; password: string; password_confirmation: string }) =>
     apiPost<null>("/auth/reset-password", input),
   resendVerification: () => apiPost<null>("/auth/email/resend"),
+  sendVerificationCode: (email: string) => apiPost<null>("/auth/email/send-code", { email }),
+  verifyEmailCode: (email: string, code: string) => apiPost<null>("/auth/email/verify-code", { email, code }),
   changePassword: (input: { current_password: string; password: string; password_confirmation: string }) =>
     apiPost<null>("/auth/password/change", input),
 

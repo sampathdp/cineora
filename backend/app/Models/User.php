@@ -48,6 +48,12 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    /** Customers verify with a six-digit code typed into the site rather than a link (see EmailOtpService). */
+    public function sendEmailVerificationNotification(): void
+    {
+        app(\App\Services\Auth\EmailOtpService::class)->send($this);
+    }
+
     // --- Relations -------------------------------------------------------
 
     public function profile(): HasOne

@@ -59,7 +59,16 @@ class AppServiceProvider extends ServiceProvider
         ]);
         RateLimiter::for('mfa', fn (Request $r) => Limit::perMinute(5)->by('mfa:'.($r->user()?->getKey() ?? $r->ip())));
         RateLimiter::for('verification', fn (Request $r) => Limit::perMinute(3)->by('verify:'.($r->user()?->getKey() ?? $r->ip())));
-        RateLimiter::for('public', fn (Request $r) => Limit::perMinute(120)->by('public:'.$r->ip()));
+        RateLimiter::for('otp-send', fn (Request $r) => [
+            Limit::perMinute(1)->by('otp-send:'.$email($r)),
+            Limit::perHour(5)->by('otp-send-email:'.$email($r)),
+            Limit::perHour(20)->by('otp-send-ip:'.$r->ip()),
+        ]);
+        RateLimiter::for('otp-verify', fn (Request $r) => [
+            Limit::perMinute(10)->by('otp-verify:'.$email($r).'|'.$r->ip()),
+            Limit::perHour(60)->by('otp-verify-ip:'.$r->ip()),
+        ]);
+        RateLimiter::for('public',fn (Request $r) => Limit::perMinute(120)->by('public:'.$r->ip()));
         RateLimiter::for('admin', fn (Request $r) => Limit::perMinute(240)->by('admin:'.($r->user()?->getKey() ?? $r->ip())));
         RateLimiter::for('booking', fn (Request $r) => Limit::perMinute(10)->by('booking:'.($r->user()?->getKey() ?? $r->ip())));
         RateLimiter::for('proof', fn (Request $r) => Limit::perMinute((int) config('cineora.limits.proof_per_minute'))->by('proof:'.($r->user()?->getKey() ?? $r->ip())));

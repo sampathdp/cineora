@@ -34,6 +34,7 @@ import { bookingsApi, STATUS_LABEL, type ApiBooking } from "@/lib/api/bookings";
 import { formatPrice } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import { Field, FormMessage, applyApiError, inputClass } from "./form-kit";
+import { VerifyCodeForm } from "./verify-code-form";
 
 const TABS = [
   { key: "overview", label: "Overview", icon: LayoutDashboard },
@@ -105,7 +106,7 @@ export function AccountView() {
         }}
       />
 
-      {!user.email_verified ? <VerifyBanner /> : null}
+      {!user.email_verified ? <VerifyBanner email={user.email} onVerified={() => void refresh()} /> : null}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[220px_1fr]">
         <nav aria-label="Account sections" className="lg:sticky lg:top-28 lg:self-start">
@@ -193,29 +194,23 @@ function Hero({ user, onSignOut }: { user: AuthUser; onSignOut: () => void }) {
   );
 }
 
-function VerifyBanner() {
-  const [msg, setMsg] = useState<string | null>(null);
+function VerifyBanner({ email, onVerified }: { email: string; onVerified: () => void }) {
+  const [open, setOpen] = useState(false);
   return (
     <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-control border border-accent/50 bg-accent/10 p-4" role="status">
       <p className="flex items-center gap-2 text-sm">
         <Mail className="size-4 shrink-0 text-accent" aria-hidden />
-        Please verify your email address before booking. Check your inbox for the link.
+        Please verify your email address before booking. Enter the 6-digit code we emailed you.
       </p>
-      <Button
-        size="sm"
-        variant="secondary"
-        onClick={async () => {
-          try {
-            await authApi.resendVerification();
-            setMsg("Sent. Check your inbox.");
-          } catch {
-            setMsg("Could not send right now. Try again in a minute.");
-          }
-        }}
-      >
-        Resend link
-      </Button>
-      {msg ? <p className="w-full text-sm text-muted">{msg}</p> : null}
+      {open ? (
+        <div className="w-full max-w-sm">
+          <VerifyCodeForm email={email} onVerified={onVerified} />
+        </div>
+      ) : (
+        <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
+          Enter code
+        </Button>
+      )}
     </div>
   );
 }
