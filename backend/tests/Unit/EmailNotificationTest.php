@@ -23,7 +23,7 @@ class EmailNotificationTest extends TestCase
 
         // Subject contains the OTP code and app name
         $this->assertStringContainsString($code, $mailMessage->subject);
-        $this->assertStringContainsString('Cineora', $mailMessage->subject);
+        $this->assertStringContainsString((string) config('app.name'), $mailMessage->subject);
 
         // Lines are populated for backward compatibility
         $this->assertCount(3, $mailMessage->introLines);
