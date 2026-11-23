@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Percent, Plus, Tag, Trash2 } from "lucide-react";
+import { Percent, Plus, Trash2 } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
 import { AdminModal, CheckField, DataTable, Feedback, PageTitle, Pill, Section, SelectField, TextField, useAction, useLoad, won } from "./kit";

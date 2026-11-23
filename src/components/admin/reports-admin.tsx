@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { BarChart3, Download, FileSpreadsheet, Filter, Sparkles } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { API_BASE_URL } from "@/lib/api/client";
 import { useAuth } from "@/providers/auth-provider";
 import { DataTable, PageTitle, Panel, Section, SelectField, TextField, useLoad } from "./kit";
-import { Button } from "@/components/ui/button";
 
 interface Report {
   columns: { key: string; label: string }[];

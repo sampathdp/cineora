@@ -149,7 +149,7 @@ function SeatLayout({ room, cinemaName, cinemaId }: { room: { id: string; name: 
     setSyncedRoomId(room.id);
   }
 
-  const editable = rows ?? derived ?? [];
+  const editable = useMemo(() => rows ?? derived ?? [], [rows, derived]);
   /** Grid column of seat `n`: its number plus one per walkway placed at or before it. */
   const colOf = (row: string, n: number) => {
     let c = n;

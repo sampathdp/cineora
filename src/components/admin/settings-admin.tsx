@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building, Globe, HelpCircle, Info, Link2, Settings, ShieldCheck } from "lucide-react";
+import { Building, Globe, Settings, ShieldCheck } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
 import { Feedback, PageTitle, Panel, Section, SelectField, TextArea, TextField, useAction, useLoad } from "./kit";

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { KeyRound, Lock, ShieldCheck, Sparkles } from "lucide-react";
+import { Lock, ShieldCheck } from "lucide-react";
 import { StaffLogin } from "@/components/auth/staff-login";
 import { BrandImage } from "@/components/layout/logo";
 

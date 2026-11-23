@@ -12,14 +12,12 @@ import {
   CheckCircle2,
   Clapperboard,
   Clock,
-  Film,
   RefreshCw,
   ScanLine,
   ShieldCheck,
   Sparkles,
   Ticket,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { useAuth } from "@/providers/auth-provider";

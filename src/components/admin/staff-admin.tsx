@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Edit2, KeyRound, Lock, Plus, ShieldAlert, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { Edit2, KeyRound, Plus, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
-import { AdminModal, DataTable, Feedback, PageTitle, Panel, Pill, Section, TextField, useAction, useLoad, when } from "./kit";
+import { AdminModal, DataTable, Feedback, PageTitle, Pill, Section, TextField, useAction, useLoad, when } from "./kit";
 import { cn } from "@/lib/utils";
 import { alertDialog, confirmDialog, promptDialog } from "@/components/ui/dialogs";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarClock, Clock, Edit2, Film, Plus, Sparkles, Tag, Trash2 } from "lucide-react";
+import { CalendarClock, Edit2, Plus, Trash2 } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { ApiError } from "@/lib/api/client";
 import { zonedParts } from "@/lib/formatters";
@@ -9,7 +9,6 @@ import { useAuth } from "@/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { confirmDialog, alertDialog } from "@/components/ui/dialogs";
 import { AdminModal, DataTable, Feedback, PageTitle, Pager, Pill, Section, SelectField, TextField, useAction, useLoad, when, won } from "./kit";
-import { cn } from "@/lib/utils";
 
 interface Showtime {
   id: string;

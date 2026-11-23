@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Clapperboard, Edit2, Film, Image as ImageIcon, Plus, Sparkles, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, Clapperboard, Edit2, Film, Image as ImageIcon, Plus, Star, Trash2 } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { apiGet } from "@/lib/api/client";
 import { useAuth } from "@/providers/auth-provider";

@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, Filter, ScrollText, ShieldAlert, ShieldCheck } from "lucide-react";
+import { ScrollText } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { DataTable, PageTitle, Pager, Pill, Section, TextField, useLoad, when } from "./kit";
-import { cn } from "@/lib/utils";
 
 interface Log {
   id: number;

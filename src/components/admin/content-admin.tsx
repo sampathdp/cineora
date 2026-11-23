@@ -3,14 +3,11 @@
 import { useState } from "react";
 import {
   Calendar,
-  Check,
   Edit2,
   Image as ImageIcon,
   Mail,
-  MessageSquare,
   Newspaper,
   Plus,
-  Sparkles,
   Star,
   Trash2,
 } from "lucide-react";

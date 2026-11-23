@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CheckCircle2, Copy, FileText, Image as ImageIcon, Landmark, Loader2, UploadCloud, X } from "lucide-react";
+import { Copy, Landmark, UploadCloud } from "lucide-react";
 import type { ApiBooking } from "@/lib/api/bookings";
 import { paymentsApi, type PaymentInfo } from "@/lib/api/payments";
 import { ApiError } from "@/lib/api/client";
@@ -9,16 +9,9 @@ import { formatPrice } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { FormMessage, inputClass } from "@/components/auth/form-kit";
-import { cn } from "@/lib/utils";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
 
 /** Bank details, proof upload and payment status for one booking. The server decides every state. */
 export function PaymentPanel({ booking, onChanged }: { booking: ApiBooking; onChanged: () => void }) {
@@ -176,7 +169,7 @@ function ProofForm({ bookingId, expected, onDone, resubmit }: { bookingId: strin
           Receipt (image or PDF, up to 5 MB)
         </label>
         <label htmlFor="proof-file" className="flex min-h-12 cursor-pointer items-center gap-2 rounded-control border border-dashed border-line px-3 text-sm text-muted hover:border-accent focus-within:border-accent">
-          <Upload className="size-4" aria-hidden />
+          <UploadCloud className="size-4" aria-hidden />
           <span className="truncate">{file ? file.name : "Choose a file"}</span>
         </label>
         <input id="proof-file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="sr-only" onChange={pick} aria-describedby="proof-err" />

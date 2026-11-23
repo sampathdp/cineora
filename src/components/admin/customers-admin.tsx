@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Phone, Ticket, User, Users } from "lucide-react";
+import { User, Users } from "lucide-react";
 import { adm } from "@/lib/api/admin";
 import { Button } from "@/components/ui/button";
 import { AdminModal, DataTable, PageTitle, Pager, Pill, Section, TextField, useLoad, when, won } from "./kit";
