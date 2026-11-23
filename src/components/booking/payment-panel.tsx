@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, Landmark, Upload } from "lucide-react";
+import { CheckCircle2, Copy, FileText, Image as ImageIcon, Landmark, Loader2, UploadCloud, X } from "lucide-react";
 import type { ApiBooking } from "@/lib/api/bookings";
 import { paymentsApi, type PaymentInfo } from "@/lib/api/payments";
 import { ApiError } from "@/lib/api/client";
@@ -9,9 +9,16 @@ import { formatPrice } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/misc";
 import { FormMessage, inputClass } from "@/components/auth/form-kit";
+import { cn } from "@/lib/utils";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
 
 /** Bank details, proof upload and payment status for one booking. The server decides every state. */
 export function PaymentPanel({ booking, onChanged }: { booking: ApiBooking; onChanged: () => void }) {

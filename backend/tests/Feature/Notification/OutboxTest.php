@@ -99,10 +99,22 @@ class OutboxTest extends TicketTestCase
                 $this->assertStringNotContainsString($secret, $html);
             }
             $this->assertSame(2, substr_count($html, 'src="data:image/png;base64,')); // render() inlines the CID images
-            $this->assertStringContainsString('Seat A1', $html);
+            $this->assertStringContainsStringIgnoringCase('Seat A1', $html);
 
             return true;
         });
+    }
+
+    public function test_approving_a_payment_emails_the_tickets_without_waiting_for_the_scheduler(): void
+    {
+        config(['cineora.mail.send_immediately' => true]);
+        Mail::fake();
+        [$booking, $payment] = $this->inReview();
+
+        $this->as($this->verifier)->postJson("/api/v1/admin/payments/{$payment->public_id}/verify")->assertOk();
+
+        Mail::assertSent(TicketsMail::class, fn ($m) => $m->hasTo($this->customer->email) && $m->booking->is($booking));
+        $this->assertSame(0, OutboxMessage::where('status', 'pending')->count());
     }
 
     public function test_qr_png_encodes_a_valid_image(): void

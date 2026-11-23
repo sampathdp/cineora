@@ -6,6 +6,11 @@ return [
 
     'frontend_url' => env('FRONTEND_URL', 'http://localhost:3000'),
 
+    'mail' => [
+        // Send outbox emails at the end of the request that created them (the scheduler still retries failures).
+        'send_immediately' => (bool) env('MAIL_SEND_IMMEDIATELY', true),
+    ],
+
     'auth' => [
         // Staff must enrol TOTP MFA before using admin routes. Default: on in production.
         'require_staff_mfa' => (bool) env('REQUIRE_STAFF_MFA', env('APP_ENV') === 'production'),

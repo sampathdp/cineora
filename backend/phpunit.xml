@@ -27,6 +27,7 @@
         <env name="DB_DATABASE" value="cineora_test"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <env name="MAIL_SEND_IMMEDIATELY" value="false"/>
         <env name="SANCTUM_STATEFUL_DOMAINS" value="localhost:3000"/>
         <env name="FRONTEND_URL" value="http://localhost:3000"/>
         <env name="REQUIRE_STAFF_MFA" value="false"/>
