@@ -208,3 +208,19 @@
 .stripe-marquee:hover {
   animation-play-state: paused;
 }
+.stripe-marquee-reverse {
+  animation-direction: reverse;
+  animation-duration: 45s;
+}
+/* Film-strip sprocket holes along the back band's edges */
+.stripe-sprockets {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.3) 0 10px, transparent 10px 22px);
+  background-size: 22px 6px;
+  background-position: 6px center;
+  background-repeat: repeat-x;
+}
+/* Outlined display text on the film strip */
+.stripe-outline {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.55);
+}

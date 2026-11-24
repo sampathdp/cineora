@@ -37,6 +37,7 @@ export interface SessionInfo {
 export const authApi = {
   me: () => apiGet<AuthUser>("/auth/me", { silent401: true }).then((r) => r.data),
   login: (email: string, password: string) => apiPost<LoginResult>("/auth/login", { email, password }, { silent401: true }).then((r) => r.data),
+  google: (credential: string) => apiPost<LoginResult>("/auth/google", { credential }, { silent401: true }).then((r) => r.data),
   staffLogin: (email: string, password: string) => apiPost<LoginResult>("/auth/staff/login", { email, password }, { silent401: true }).then((r) => r.data),
   logout: () => apiPost<null>("/auth/logout", undefined, { silent401: true }),
   register: (input: { name: string; email: string; password: string; password_confirmation: string; phone?: string; terms: boolean }) =>

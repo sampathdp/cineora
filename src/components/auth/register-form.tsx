@@ -11,6 +11,7 @@ import { CheckCircle2, MailCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { authApi } from "@/lib/api/auth";
 import { AuthCard, Field, FormMessage, applyApiError } from "./form-kit";
+import { GoogleButton } from "./google-button";
 import { VerifyCodeForm } from "./verify-code-form";
 
 // Mirrors the server rules for fast feedback; the server remains the authority.
@@ -103,6 +104,7 @@ export function RegisterForm() {
         </>
       }
     >
+      <GoogleButton next={safeRedirect(rawNext)} />
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5" aria-label="Create account">
         <FormMessage>{formError}</FormMessage>
         <Field label="Full name" autoComplete="name" {...register("name")} error={errors.name?.message} />

@@ -136,6 +136,7 @@ jobs:
       - name: 🏗️ Build frontend (static export)
         env:
           NEXT_PUBLIC_API_BASE_URL: ${{ secrets.DEPLOY_URL }}
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: 📂 Prepare deployment directory
@@ -175,9 +176,9 @@ jobs:
               Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
               # Site pages only: the API sets its own stricter CSP (and a sandbox on proof files), which must win.
               # The static export inlines its own bootstrap scripts (no server to add nonces), so scripts need
-              # 'unsafe-inline'; everything else is locked to this origin. blob: = proof previews, data: = QR codes.
+              # 'unsafe-inline'; everything else is locked to this origin, plus Google Identity Services (/gsi/) for Google sign-in. blob: = proof previews, data: = QR codes.
               <If "%{REQUEST_URI} !~ m#^/(api|sanctum|storage)/#">
-                  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self' blob: https://www.youtube-nocookie.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+                  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://accounts.google.com/gsi/; frame-src 'self' blob: https://www.youtube-nocookie.com https://accounts.google.com/gsi/; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
               </If>
               Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
               # Only the staff area may ask for the camera (door scanner, paired phone scanner). It must cover every

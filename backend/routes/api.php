@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\Customer\BookingController;
 use App\Http\Controllers\Api\V1\Customer\PaymentController;
 use App\Http\Controllers\Api\V1\Customer\TicketController;
 use App\Http\Controllers\Api\V1\Auth\EmailVerificationController;
+use App\Http\Controllers\Api\V1\Auth\GoogleAuthController;
 use App\Http\Controllers\Api\V1\Auth\MfaController;
 use App\Http\Controllers\Api\V1\Auth\PasswordController;
 use App\Http\Controllers\Api\V1\Auth\RegistrationController;
@@ -50,6 +51,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/register', [RegistrationController::class, 'store'])->middleware('throttle:register');
         Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
+        Route::post('/google', [GoogleAuthController::class, 'login'])->middleware('throttle:login');
         Route::post('/staff/login', [AuthController::class, 'staffLogin'])->middleware('throttle:login');
         Route::post('/forgot-password', [PasswordController::class, 'forgot'])->middleware('throttle:password-reset');
         Route::post('/reset-password', [PasswordController::class, 'reset'])->middleware('throttle:password-reset');

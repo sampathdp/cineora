@@ -11,6 +11,7 @@ interface AuthContextValue {
   status: Status;
   user: AuthUser | null;
   login: (email: string, password: string) => Promise<LoginResult>;
+  googleLogin: (credential: string) => Promise<LoginResult>;
   staffLogin: (email: string, password: string) => Promise<LoginResult>;
   logout: () => Promise<void>;
   refresh: () => Promise<AuthUser | null>;
@@ -58,6 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return result;
   }, []);
 
+  const googleLogin = useCallback(async (credential: string) => {
+    const result = await authApi.google(credential);
+    loadCache.clear();
+    setState({ status: "authenticated", user: result.user });
+    return result;
+  }, []);
+
   const staffLogin = useCallback(async (email: string, password: string) => {
     const result = await authApi.staffLogin(email, password);
     loadCache.clear();
@@ -78,12 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       login,
+      googleLogin,
       staffLogin,
       logout,
       refresh,
       can: (permission) => !!state.user?.permissions.includes(permission),
     }),
-    [state, login, staffLogin, logout, refresh],
+    [state, login, googleLogin, staffLogin, logout, refresh],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

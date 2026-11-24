@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/providers/auth-provider";
 import { safeRedirect } from "@/lib/safe-redirect";
 import { AuthCard, Field, FormMessage, applyApiError } from "./form-kit";
+import { GoogleButton } from "./google-button";
 
 const schema = z.object({
   email: z.string().trim().email("Enter a valid email address."),
@@ -52,6 +53,7 @@ export function LoginForm() {
         </>
       }
     >
+      <GoogleButton next={next} />
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-5" aria-label="Sign in">
         <FormMessage>{formError}</FormMessage>
         <Field label="Email" type="email" autoComplete="email" {...register("email")} error={errors.email?.message} />
