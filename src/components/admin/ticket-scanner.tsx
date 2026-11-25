@@ -92,7 +92,11 @@ export function TicketScanner() {
   );
 
   const { camera, cameraError, start: startCamera, stop: stopCamera, videoRef, canvasRef } = useQrCamera((code) => void validate(scanInput(code)));
-  useHidScanner((code) => void validate(scanInput(code.trim())));
+  const [scannerLastAt, setScannerLastAt] = useState<Date | null>(null);
+  useHidScanner((code) => {
+    setScannerLastAt(new Date());
+    void validate(scanInput(code.trim()));
+  });
 
   // --- Paired phone camera ---
   const [pair, setPair] = useState<{ token: string; url: string; qr: string } | null>(null);
@@ -374,6 +378,25 @@ export function TicketScanner() {
                 <p className="text-xs text-muted/80 mt-1">Point scanner at QR or enter code.</p>
               </div>
             )}
+          </div>
+
+          {/* Barcode scanner (keyboard/HID mode, paired in the OS, so there is nothing to connect here) */}
+          <div className="space-y-2 rounded-3xl border border-line/70 bg-elevated/70 p-5 shadow-sm backdrop-blur-sm">
+            <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
+              <ScanLine className="size-4" aria-hidden /> Barcode scanner
+            </h3>
+            <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <span className={cn("size-2 rounded-full", scannerLastAt ? "bg-emerald-500" : "bg-amber-500 animate-pulse")} aria-hidden />
+              {scannerLastAt ? `Working · last scan ${scannerLastAt.toLocaleTimeString()}` : "Listening — scan any ticket to test"}
+            </p>
+            <details className="text-xs text-muted">
+              <summary className="cursor-pointer select-none">How to connect a USB / Bluetooth scanner</summary>
+              <ol className="mt-2 list-decimal space-y-1 pl-4">
+                <li>Set the scanner to <b>keyboard (HID) mode</b> with an <b>Enter suffix</b> using its setup barcodes.</li>
+                <li>Pair it in the computer&apos;s Bluetooth settings (or plug in its USB base). It shows up as a keyboard.</li>
+                <li>Keep this page open and don&apos;t click into a text box. Just scan.</li>
+              </ol>
+            </details>
           </div>
 
           {/* Ticket printer */}
