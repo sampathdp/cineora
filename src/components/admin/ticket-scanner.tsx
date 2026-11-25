@@ -11,6 +11,7 @@ import { FormMessage } from "@/components/auth/form-kit";
 import { PageTitle } from "./kit";
 import { cn } from "@/lib/utils";
 import { useQrCamera } from "./use-qr-camera";
+import { useHidScanner } from "./use-hid-scanner";
 import { PrinterControl, usePrinter } from "./use-printer";
 
 /** A 26-character ULID is a ticket reference (printed slips); anything else is a signed QR payload. */
@@ -91,6 +92,7 @@ export function TicketScanner() {
   );
 
   const { camera, cameraError, start: startCamera, stop: stopCamera, videoRef, canvasRef } = useQrCamera((code) => void validate(scanInput(code)));
+  useHidScanner((code) => void validate(scanInput(code.trim())));
 
   // --- Paired phone camera ---
   const [pair, setPair] = useState<{ token: string; url: string; qr: string } | null>(null);
@@ -164,7 +166,7 @@ export function TicketScanner() {
         title="Door Scanner & Ticket Admissions"
         eyebrow="Admissions Gate"
         icon={ScanLine}
-        hint="Scan ticket QR codes via device camera or type ticket references for instant validation."
+        hint="Scan with a USB/Bluetooth barcode scanner or the device camera, or type a ticket reference for instant validation."
       />
 
       <div className="grid gap-6 xl:grid-cols-[1fr_22rem]">
